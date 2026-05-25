@@ -696,3 +696,8 @@ if __name__ == '__main__':
     app.add_handler(conv)
     app.run_polling()
 ENDOFFILE
+{
+  "returncode" : 0,
+  "stdout" : "",
+  "stderr" : ""
+}
