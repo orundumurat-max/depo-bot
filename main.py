@@ -1,4 +1,3 @@
- > /mnt/user-data/outputs/main.py << 'ENDOFFILE'
 import logging
 import io
 from PIL import Image, ImageDraw, ImageFont
@@ -695,4 +694,3 @@ if __name__ == '__main__':
 
     app.add_handler(conv)
     app.run_polling()
-ENDOFFILE
