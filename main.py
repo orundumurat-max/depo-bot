@@ -4,7 +4,9 @@ from PIL import Image, ImageDraw, ImageFont
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
-TOKEN = import os
+TOKEN =import os
+TOKEN = os.environ.get("TOKEN")
+
 TOKEN = os.environ.get("TOKEN")
 
 
