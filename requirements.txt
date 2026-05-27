@@ -1,8 +1,2 @@
-{
-  "returncode" : 0,
-  "stdout" : "",
-  "stderr" : ""
-}
-
-
-
+python-telegram-bot==20.3
+Pillow==11.1.0
