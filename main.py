@@ -7,7 +7,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 TOKEN =import os
 TOKEN = os.environ.get("TOKEN")
 
-TOKEN = os.environ.get("TOKEN")
+TOKE
 
 
 (LANG, DEPO_TIPI, KORIDOR_TIPI, UZUNLUK, GENISLIK, PALET, KAT, YUKSEKLIK,
