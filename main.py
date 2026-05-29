@@ -1,4 +1,3 @@
-cat > /mnt/user-data/outputs/main.py << 'ENDOFFILE'
 import os
 import logging
 import io
@@ -667,4 +666,3 @@ if __name__ == '__main__':
     )
     app.add_handler(conv)
     app.run_polling()
-ENDOFFILE
