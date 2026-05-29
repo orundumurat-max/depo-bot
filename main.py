@@ -1,3 +1,4 @@
+cat > /mnt/user-data/outputs/main.py << 'ENDOFFILE'
 import os
 import logging
 import io
@@ -7,10 +8,10 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 
 TOKEN = os.environ.get("TOKEN")
 
-(LANG, UZUNLUK, GENISLIK, YUKSEKLIK,
+(LANG, UZUNLUK, GENISLIK, DEPO_YUK,
  GIRIS_DUVAR, GIRIS_KONUM, GIRIS_MESAFE, GIRIS_BOSLUK,
- KENAR_BOSLUK, KORIDOR_TIPI, PALET, KAT,
- ONERI_ONAYLA, MANUEL_TIP) = range(14)
+ KENAR_BOSLUK, KORIDOR_TIPI, PALET, KAT, RAF_YUK,
+ ONERI_ONAYLA, MANUEL_TIP) = range(15)
 
 PALET_GENISLIK = {1: 0.95, 2: 1.85, 3: 2.7, 4: 3.6}
 KORIDOR_GENISLIK = {"forklift": 3.0, "transpalet": 2.0, "el": 1.2}
@@ -21,11 +22,7 @@ def get_lang(c):
 def kb(rows):
     return ReplyKeyboardMarkup(rows, one_time_keyboard=True, resize_keyboard=True)
 
-def hesapla_en_iyi_tip(uzunluk, genislik, raf_g, koridor, kb2, g_duvar, g_bosluk):
-    """Her tip için sıra sayısı ve verimlilik hesapla, en iyisini öner."""
-    sonuclar = {}
-
-    # Kullanılabilir alan
+def hesapla_tipler(uzunluk, genislik, raf_g, koridor, kb2, g_duvar, g_bosluk):
     if g_duvar in ['alt', 'ust']:
         ef_g = genislik - kb2*2 - g_bosluk
         ef_u = uzunluk - kb2*2
@@ -33,41 +30,37 @@ def hesapla_en_iyi_tip(uzunluk, genislik, raf_g, koridor, kb2, g_duvar, g_bosluk
         ef_g = genislik - kb2*2
         ef_u = uzunluk - kb2*2 - g_bosluk
 
-    # I tipi - paralel siralar
+    ef_g = max(ef_g, 1)
+    ef_u = max(ef_u, 1)
+
     i_satir = max(1, int(ef_g / (raf_g + koridor)))
     i_perz  = max(1, int(ef_u / 1.1))
     i_toplam = i_satir * i_perz
-    i_kullanim = (i_satir * raf_g) / ef_g * 100 if ef_g > 0 else 0
-    sonuclar['I'] = {
-        'toplam': i_toplam, 'satir': i_satir, 'perz': i_perz,
-        'kullanim': i_kullanim, 'kalan_g': ef_g - i_satir*(raf_g+koridor)
-    }
+    i_kalan = ef_g - i_satir * (raf_g + koridor)
 
-    # L tipi - iki duvara bitisik
     sol_adet = max(1, int(ef_g / 1.1))
     alt_adet = max(1, int((ef_u - raf_g - koridor) / 1.1))
     l_toplam = sol_adet + alt_adet
-    sonuclar['L'] = {
-        'toplam': l_toplam, 'sol_adet': sol_adet, 'alt_adet': alt_adet,
-        'kullanim': 75, 'kalan_g': 0
-    }
 
-    # U tipi - uc duvara bitisik
-    sol_adet_u = max(1, int(ef_g / 1.1))
-    sag_adet_u = sol_adet_u
+    sol_u = max(1, int(ef_g / 1.1))
+    sag_u = sol_u
     ara_u = ef_u - raf_g*2 - koridor*2
-    alt_adet_u = max(1, int(ara_u / 1.1)) if ara_u > 0 else 0
-    u_toplam = sol_adet_u + sag_adet_u + alt_adet_u
-    sonuclar['U'] = {
-        'toplam': u_toplam, 'sol_adet': sol_adet_u, 'sag_adet': sag_adet_u,
-        'alt_adet': alt_adet_u, 'kullanim': 85, 'kalan_g': 0
-    }
+    alt_u = max(0, int(ara_u / 1.1)) if ara_u > 0 else 0
+    u_toplam = sol_u + sag_u + alt_u
 
-    # En iyi tip: en fazla raf
+    sonuclar = {
+        'I': {'toplam': i_toplam, 'satir': i_satir, 'perz': i_perz, 'kalan': i_kalan},
+        'L': {'toplam': l_toplam, 'sol': sol_adet, 'alt': alt_adet},
+        'U': {'toplam': u_toplam, 'sol': sol_u, 'sag': sag_u, 'alt': alt_u},
+    }
     en_iyi = max(sonuclar, key=lambda x: sonuclar[x]['toplam'])
     return en_iyi, sonuclar
 
-def ciz_raf(draw, rx1, ry1, rx2, ry2, TURUNCU, YESIL, MAVI, GRI):
+def ciz_raf(draw, rx1, ry1, rx2, ry2):
+    TURUNCU = '#ff8c42'
+    YESIL   = '#4ade80'
+    MAVI    = '#4a9eff'
+    GRI     = '#2a2a40'
     draw.rectangle([rx1, ry1, rx2, ry2], fill='#0a1628')
     draw.line([rx1, ry1, rx2, ry2], fill=GRI, width=1)
     draw.line([rx2, ry1, rx1, ry2], fill=GRI, width=1)
@@ -80,18 +73,18 @@ def ciz_raf(draw, rx1, ry1, rx2, ry2, TURUNCU, YESIL, MAVI, GRI):
     for px, py in [(rx1,ry1),(rx2,ry1),(rx1,ry2),(rx2,ry2)]:
         draw.ellipse([px-r,py-r,px+r,py+r], fill=MAVI, outline='white', width=1)
 
-def teknik_resim_ciz(d, lang, tip, sonuclar):
-    uzunluk   = d['uzunluk']
-    genislik  = d['genislik']
-    raf_g     = PALET_GENISLIK[d['palet']]
-    koridor   = KORIDOR_GENISLIK[d['koridor_tipi']]
-    kat       = d['kat']
-    yukseklik = d['yukseklik']
-    kb2       = d.get('kenar_bosluk', 0.0)
-    g_duvar   = d.get('giris_duvar', 'alt')
-    g_konum   = d.get('giris_konum', 'orta')
-    g_mesafe  = d.get('giris_mesafe', 0.0)
-    g_bosluk  = d.get('giris_bosluk', 2.0)
+def teknik_ciz(d, lang, tip, sonuclar):
+    uzunluk  = d['uzunluk']
+    genislik = d['genislik']
+    raf_g    = PALET_GENISLIK[d['palet']]
+    koridor  = KORIDOR_GENISLIK[d['koridor_tipi']]
+    kat      = d['kat']
+    raf_yuk  = d['raf_yuk']
+    kb2      = d.get('kenar_bosluk', 0.0)
+    g_duvar  = d.get('giris_duvar', 'alt')
+    g_konum  = d.get('giris_konum', 'orta')
+    g_mesafe = d.get('giris_mesafe', 0.0)
+    g_bosluk = d.get('giris_bosluk', 2.0)
 
     W, H = 1100, 840
     img  = Image.new('RGB', (W, H), '#0d1117')
@@ -105,16 +98,15 @@ def teknik_resim_ciz(d, lang, tip, sonuclar):
     except:
         fb = fn = ft = fsm = ImageFont.load_default()
 
-    MAVI    = '#4a9eff'
-    TURUNCU = '#ff8c42'
-    YESIL   = '#4ade80'
-    BEYAZ   = '#e8e8e8'
-    GRI     = '#2a2a40'
-    AGRI    = '#606080'
-    SARI    = '#ffd700'
-    SINIR   = '#00b4d8'
-    MOR     = '#c084fc'
-    YESIL2  = '#22c55e'
+    BEYAZ  = '#e8e8e8'
+    AGRI   = '#606080'
+    SARI   = '#ffd700'
+    SINIR  = '#00b4d8'
+    MOR    = '#c084fc'
+    YESIL2 = '#22c55e'
+    TURUNCU= '#ff8c42'
+    YESIL  = '#4ade80'
+    MAVI   = '#4a9eff'
 
     INFO_H = 140
     pl, pt, pr, pb = 70, 55, 110, INFO_H + 40
@@ -126,19 +118,21 @@ def teknik_resim_ciz(d, lang, tip, sonuclar):
 
     # Baslik
     draw.rectangle([0, 0, W, 42], fill='#161b22')
+    toplam = sonuclar[tip]['toplam']
     if lang == 'tr':
-        baslik = f"TEKNIK CIZIM  |  Tip: {tip}  |  {uzunluk}x{genislik}m  |  {sonuclar[tip]['toplam']} raf"
+        baslik = f"TEKNIK CIZIM | Tip:{tip} | {uzunluk}x{genislik}m | {toplam} raf"
     else:
-        baslik = f"CHERTEZH  |  Tip: {tip}  |  {uzunluk}x{genislik}m  |  {sonuclar[tip]['toplam']} stell."
+        baslik = f"CHERTEZH | Tip:{tip} | {uzunluk}x{genislik}m | {toplam} stell."
     draw.text((W//2, 21), baslik, fill=SARI, font=ft, anchor='mm')
 
-    # Depo - her zaman dikdortgen
+    # Depo dikdortgen
     draw.rectangle([ox, oy, ox+pw, oy+ph], outline=SINIR, width=3)
     draw.rectangle([ox+2, oy+2, ox+pw-2, oy+ph-2], outline='#1a3a5c', width=1)
 
-    # Kapı konumu hesapla
+    # Kapi konumu
     G = 60
     kapi_lbl = "GIRIS/CIKIS" if lang=='tr' else "VHOD/VYHOD"
+    gx = gy = 0
     if g_duvar in ['alt', 'ust']:
         if g_konum == 'orta': gx = ox + pw // 2
         elif g_konum == 'sol': gx = ox + int(g_mesafe * sx) + G//2
@@ -148,215 +142,151 @@ def teknik_resim_ciz(d, lang, tip, sonuclar):
         elif g_konum == 'ust': gy = oy + int(g_mesafe * sy) + G//2
         else: gy = oy + ph - int(g_mesafe * sy) - G//2
 
-    # Yukleme alani (yesil) - kapinin oldugu tarafta
+    # Yukleme alani + kapi - kapinin oldugu tarafta
     bp_y = int(g_bosluk * sy)
     bp_x = int(g_bosluk * sx)
+    zona_lbl = "YUKLEME/BOSALTMA" if lang=='tr' else "ZONA POGRUZKI"
 
     if g_duvar == 'alt':
         draw.rectangle([ox+3, oy+ph-bp_y, ox+pw-3, oy+ph-3], fill='#052e16', outline=YESIL2, width=2)
-        lbl = "YUKLEME/BOSALTMA" if lang=='tr' else "ZONA POGRUZKI"
-        draw.text((ox+pw//2, oy+ph-bp_y//2-7), lbl, fill=YESIL2, font=fsm, anchor='mm')
+        draw.text((ox+pw//2, oy+ph-bp_y//2-7), zona_lbl, fill=YESIL2, font=fsm, anchor='mm')
         draw.text((ox+pw//2, oy+ph-bp_y//2+9), f"{g_bosluk}m", fill=YESIL2, font=fb, anchor='mm')
         draw.line([gx-G//2, oy+ph, gx+G//2, oy+ph], fill=SARI, width=8)
         draw.text((gx, oy+ph+10), kapi_lbl, fill=SARI, font=fsm, anchor='mt')
-
     elif g_duvar == 'ust':
         draw.rectangle([ox+3, oy+3, ox+pw-3, oy+bp_y], fill='#052e16', outline=YESIL2, width=2)
-        lbl = "YUKLEME/BOSALTMA" if lang=='tr' else "ZONA POGRUZKI"
-        draw.text((ox+pw//2, oy+bp_y//2-7), lbl, fill=YESIL2, font=fsm, anchor='mm')
+        draw.text((ox+pw//2, oy+bp_y//2-7), zona_lbl, fill=YESIL2, font=fsm, anchor='mm')
         draw.text((ox+pw//2, oy+bp_y//2+9), f"{g_bosluk}m", fill=YESIL2, font=fb, anchor='mm')
         draw.line([gx-G//2, oy, gx+G//2, oy], fill=SARI, width=8)
         draw.text((gx, oy-10), kapi_lbl, fill=SARI, font=fsm, anchor='mb')
-
     elif g_duvar == 'sol':
         draw.rectangle([ox+3, oy+3, ox+bp_x, oy+ph-3], fill='#052e16', outline=YESIL2, width=2)
-        lbl = "YUKLEME" if lang=='tr' else "ZONA"
-        draw.text((ox+bp_x//2, oy+ph//2-7), lbl, fill=YESIL2, font=fsm, anchor='mm')
+        draw.text((ox+bp_x//2, oy+ph//2-7), zona_lbl, fill=YESIL2, font=fsm, anchor='mm')
         draw.text((ox+bp_x//2, oy+ph//2+9), f"{g_bosluk}m", fill=YESIL2, font=fb, anchor='mm')
         draw.line([ox, gy-G//2, ox, gy+G//2], fill=SARI, width=8)
         draw.text((ox-8, gy), kapi_lbl, fill=SARI, font=fsm, anchor='rm')
-
-    else:  # sag
+    else:
         draw.rectangle([ox+pw-bp_x, oy+3, ox+pw-3, oy+ph-3], fill='#052e16', outline=YESIL2, width=2)
-        lbl = "YUKLEME" if lang=='tr' else "ZONA"
-        draw.text((ox+pw-bp_x//2, oy+ph//2-7), lbl, fill=YESIL2, font=fsm, anchor='mm')
+        draw.text((ox+pw-bp_x//2, oy+ph//2-7), zona_lbl, fill=YESIL2, font=fsm, anchor='mm')
         draw.text((ox+pw-bp_x//2, oy+ph//2+9), f"{g_bosluk}m", fill=YESIL2, font=fb, anchor='mm')
         draw.line([ox+pw, gy-G//2, ox+pw, gy+G//2], fill=SARI, width=8)
         draw.text((ox+pw+8, gy), kapi_lbl, fill=SARI, font=fsm, anchor='lm')
 
-    # Kapidan mesafe goster
-    if g_mesafe > 0 and g_konum != 'orta':
-        if g_duvar in ['alt', 'ust']:
-            ex = oy+ph+28 if g_duvar=='alt' else oy-28
-            if g_konum == 'sol':
-                draw.line([ox, ex, gx-G//2, ex], fill=AGRI, width=1)
-                draw.text(((ox+gx-G//2)//2, ex-3), f"{g_mesafe}m", fill=BEYAZ, font=fsm, anchor='mb')
-            else:
-                draw.line([gx+G//2, ex, ox+pw, ex], fill=AGRI, width=1)
-                draw.text(((gx+G//2+ox+pw)//2, ex-3), f"{g_mesafe}m", fill=BEYAZ, font=fsm, anchor='mb')
-
     # RAF ALANI - kapinin KARSISINDA
-    raf_x1 = ox + int(kb2 * sx)
-    raf_y1 = oy + int(kb2 * sy)
-    raf_x2 = ox + pw - int(kb2 * sx)
-    raf_y2 = oy + ph - int(kb2 * sy)
+    rx1 = ox + int(kb2 * sx)
+    ry1 = oy + int(kb2 * sy)
+    rx2 = ox + pw - int(kb2 * sx)
+    ry2 = oy + ph - int(kb2 * sy)
 
-    # Kapinin karsi tarafina raflar - yukleme alani kapinin yaninda kalsin
-    if g_duvar == 'alt':
-        raf_y2 -= bp_y   # alt yuklemeden uzak - raflar uste
-    elif g_duvar == 'ust':
-        raf_y1 += bp_y   # ust yuklemeden uzak - raflar alta
-    elif g_duvar == 'sol':
-        raf_x1 += bp_x   # sol yuklemeden uzak - raflar saga
-    else:
-        raf_x2 -= bp_x   # sag yuklemeden uzak - raflar sola
+    if g_duvar == 'alt':   ry2 -= bp_y
+    elif g_duvar == 'ust': ry1 += bp_y
+    elif g_duvar == 'sol': rx1 += bp_x
+    else:                  rx2 -= bp_x
 
-    raf_aw = raf_x2 - raf_x1
-    raf_ah = raf_y2 - raf_y1
-    ef_u = raf_aw / sx
-    ef_g = raf_ah / sy
+    aw = rx2 - rx1
+    ah = ry2 - ry1
+    eu = aw / sx
+    eg = ah / sy
 
     raflar = []
-    kalan_bilgi = ""
+    kalan_txt = ""
 
     if tip == 'I':
-        raf_satir = max(1, int(ef_g / (raf_g + koridor)))
-        raf_perz  = max(1, int(ef_u / 1.1))
-
-        # Raflar kapinin KARSISINDA baslasin
-        if g_duvar == 'alt':
-            # Raflar yukari taraftan baslar
-            for row in range(raf_satir):
-                ry1 = raf_y1 + int((raf_g/2 + row*(raf_g+koridor)) * sy)
-                ry2 = max(ry1 + int(raf_g * sy), ry1 + 14)
-                for col in range(raf_perz):
-                    rx1 = raf_x1 + int(col * 1.1 * sx) + 1
-                    rx2 = max(raf_x1 + int((col+1)*1.1*sx)-1, rx1+8)
-                    raflar.append((rx1, ry1, rx2, ry2, row))
-        else:
-            for row in range(raf_satir):
-                ry1 = raf_y1 + int((raf_g/2 + row*(raf_g+koridor)) * sy)
-                ry2 = max(ry1 + int(raf_g * sy), ry1 + 14)
-                for col in range(raf_perz):
-                    rx1 = raf_x1 + int(col * 1.1 * sx) + 1
-                    rx2 = max(raf_x1 + int((col+1)*1.1*sx)-1, rx1+8)
-                    raflar.append((rx1, ry1, rx2, ry2, row))
-
-        kalan_g = ef_g - raf_satir*(raf_g+koridor)
-        ek_sir = int(kalan_g / (raf_g + koridor))
+        n_satir = max(1, int(eg / (raf_g + koridor)))
+        n_perz  = max(1, int(eu / 1.1))
+        for row in range(n_satir):
+            rry1 = ry1 + int((raf_g/2 + row*(raf_g+koridor)) * sy)
+            rry2 = max(rry1 + int(raf_g * sy), rry1 + 14)
+            for col in range(n_perz):
+                rrx1 = rx1 + int(col * 1.1 * sx) + 1
+                rrx2 = max(rx1 + int((col+1)*1.1*sx)-1, rrx1+8)
+                raflar.append((rrx1, rry1, rrx2, rry2, row))
+        kalan = eg - n_satir*(raf_g+koridor)
+        ek = int(kalan / (raf_g + koridor))
         if lang == 'tr':
-            kalan_bilgi = f"Kalan alan: {kalan_g:.1f}m"
-            if ek_sir > 0:
-                kalan_bilgi += f" ({ek_sir} sira daha sigabilir!)"
+            kalan_txt = f"Kalan: {kalan:.1f}m"
+            if ek > 0: kalan_txt += f" → {ek} sira daha!"
         else:
-            kalan_bilgi = f"Остаток: {kalan_g:.1f}м"
-            if ek_sir > 0:
-                kalan_bilgi += f" (ещё {ek_sir} ряд(а) поместится!)"
+            kalan_txt = f"Остаток: {kalan:.1f}м"
+            if ek > 0: kalan_txt += f" → ещё {ek} ряд(а)!"
 
-        # Raf etiketleri
+        # Etiketler
         satir_ry = {}
-        for (rx1, ry1, rx2, ry2, row) in raflar:
-            if row not in satir_ry: satir_ry[row] = (ry1, ry2)
+        for (a,b,c,d2,row) in raflar:
+            if row not in satir_ry: satir_ry[row] = (b,d2)
         for i, row in enumerate(sorted(satir_ry.keys())):
-            ry1v, ry2v = satir_ry[row]
-            draw.text((ox+pw+6, (ry1v+ry2v)//2), f"R{row+1}", fill=BEYAZ, font=fn, anchor='lm')
+            b,d2 = satir_ry[row]
+            draw.text((ox+pw+6, (b+d2)//2), f"R{row+1}", fill=BEYAZ, font=fn, anchor='lm')
             if i > 0:
                 prev = sorted(satir_ry.keys())[i-1]
-                prev_ry2 = satir_ry[prev][1]
-                ky = (prev_ry2 + ry1v) // 2
+                prev_d2 = satir_ry[prev][1]
+                ky = (prev_d2 + b) // 2
                 draw.text((ox+pw+6, ky), f"{koridor}m", fill=MOR, font=fsm, anchor='lm')
 
     elif tip == 'L':
-        raf_dp_x = int(raf_g * sx)
-        raf_dp_y = int(raf_g * sy)
-
-        # Kapinin karsisina gore L yonu belirle
+        dp_x = int(raf_g * sx)
+        dp_y = int(raf_g * sy)
+        # Sol duvara bitisik
+        n_sol = max(1, int(eg / 1.1))
+        for i in range(n_sol):
+            rry1 = ry1 + int(i * 1.1 * sy)
+            rry2 = max(rry1 + int(0.9*sy), rry1+8)
+            if rry2 > ry2: break
+            raflar.append((rx1, rry1, rx1+dp_x, rry2, i))
+        # Kapinin karsisindaki duvara bitisik
         if g_duvar == 'alt':
-            # Sol + ust duvara bitisik
-            sol_x1, sol_x2 = raf_x1, raf_x1 + raf_dp_x
-            n_sol = max(1, int(ef_g / 1.1))
-            for i in range(n_sol):
-                ry1 = raf_y1 + int(i * 1.1 * sy)
-                ry2 = max(ry1 + int(0.9*sy), ry1+8)
-                if ry2 > raf_y2: break
-                raflar.append((sol_x1, ry1, sol_x2, ry2, i))
-            ust_y1, ust_y2 = raf_y1, raf_y1 + raf_dp_y
-            bas_x = sol_x2 + int(koridor * sx)
-            n_ust = max(1, int((raf_x2 - bas_x) / (1.1*sx)))
-            for i in range(n_ust):
-                rx1 = bas_x + int(i * 1.1 * sx)
-                rx2 = max(rx1 + int(0.9*sx), rx1+8)
-                if rx2 > raf_x2: break
-                raflar.append((rx1, ust_y1, rx2, ust_y2, i+100))
+            # Ust duvara bitisik
+            bas_x = rx1 + dp_x + int(koridor*sx)
+            for i in range(max(1, int((eu - raf_g - koridor) / 1.1))):
+                rrx1 = bas_x + int(i*1.1*sx)
+                rrx2 = max(rrx1+int(0.9*sx), rrx1+8)
+                if rrx2 > rx2: break
+                raflar.append((rrx1, ry1, rrx2, ry1+dp_y, i+100))
         else:
-            # Sol + alt duvara bitisik
-            sol_x1, sol_x2 = raf_x1, raf_x1 + raf_dp_x
-            n_sol = max(1, int(ef_g / 1.1))
-            for i in range(n_sol):
-                ry1 = raf_y1 + int(i * 1.1 * sy)
-                ry2 = max(ry1 + int(0.9*sy), ry1+8)
-                if ry2 > raf_y2: break
-                raflar.append((sol_x1, ry1, sol_x2, ry2, i))
-            alt_y1, alt_y2 = raf_y2 - raf_dp_y, raf_y2
-            bas_x = sol_x2 + int(koridor * sx)
-            n_alt = max(1, int((raf_x2 - bas_x) / (1.1*sx)))
-            for i in range(n_alt):
-                rx1 = bas_x + int(i * 1.1 * sx)
-                rx2 = max(rx1 + int(0.9*sx), rx1+8)
-                if rx2 > raf_x2: break
-                raflar.append((rx1, alt_y1, rx2, alt_y2, i+100))
-
-        kalan_bilgi = f"{len(raflar)} raf" if lang=='tr' else f"{len(raflar)} stell."
+            # Alt duvara bitisik
+            bas_x = rx1 + dp_x + int(koridor*sx)
+            for i in range(max(1, int((eu - raf_g - koridor) / 1.1))):
+                rrx1 = bas_x + int(i*1.1*sx)
+                rrx2 = max(rrx1+int(0.9*sx), rrx1+8)
+                if rrx2 > rx2: break
+                raflar.append((rrx1, ry2-dp_y, rrx2, ry2, i+100))
+        kalan_txt = f"{len(raflar)} raf" if lang=='tr' else f"{len(raflar)} stell."
 
     elif tip == 'U':
-        raf_dp_x = int(raf_g * sx)
-        raf_dp_y = int(raf_g * sy)
-
-        # Sol duvara bitisik
-        sol_x1, sol_x2 = raf_x1, raf_x1 + raf_dp_x
-        # Sag duvara bitisik
-        sag_x1, sag_x2 = raf_x2 - raf_dp_x, raf_x2
-
-        if g_duvar == 'alt':
-            # Ust duvara bitisik (kapi karsisi)
-            ust_y1, ust_y2 = raf_y1, raf_y1 + raf_dp_y
-            bas_x = sol_x2 + int(koridor * sx)
-            bit_x = sag_x1 - int(koridor * sx)
-            n_ust = max(1, int((bit_x - bas_x) / (1.1*sx)))
-            for i in range(n_ust):
-                rx1 = bas_x + int(i * 1.1 * sx)
-                rx2 = max(rx1 + int(0.9*sx), rx1+8)
-                if rx2 > bit_x: break
-                raflar.append((rx1, ust_y1, rx2, ust_y2, i+200))
-        else:
-            # Alt duvara bitisik (kapi karsisi)
-            alt_y1, alt_y2 = raf_y2 - raf_dp_y, raf_y2
-            bas_x = sol_x2 + int(koridor * sx)
-            bit_x = sag_x1 - int(koridor * sx)
-            n_alt = max(1, int((bit_x - bas_x) / (1.1*sx)))
-            for i in range(n_alt):
-                rx1 = bas_x + int(i * 1.1 * sx)
-                rx2 = max(rx1 + int(0.9*sx), rx1+8)
-                if rx2 > bit_x: break
-                raflar.append((rx1, alt_y1, rx2, alt_y2, i+200))
-
-        # Sol ve sag duvara her zaman bitisik
-        ef_g_yan = ef_g
-        n_yan = max(1, int(ef_g_yan / 1.1))
+        dp_x = int(raf_g * sx)
+        dp_y = int(raf_g * sy)
+        sol_x1, sol_x2 = rx1, rx1+dp_x
+        sag_x1, sag_x2 = rx2-dp_x, rx2
+        bas_x = sol_x2 + int(koridor*sx)
+        bit_x = sag_x1 - int(koridor*sx)
+        # Sol ve sag duvara bitisik
+        n_yan = max(1, int(eg / 1.1))
         for i in range(n_yan):
-            ry1 = raf_y1 + int(i * 1.1 * sy)
-            ry2 = max(ry1 + int(0.9*sy), ry1+8)
-            if ry2 > raf_y2: break
-            raflar.append((sol_x1, ry1, sol_x2, ry2, i))
-            raflar.append((sag_x1, ry1, sag_x2, ry2, i+100))
-
-        kalan_bilgi = f"{len(raflar)} raf" if lang=='tr' else f"{len(raflar)} stell."
+            rry1 = ry1 + int(i*1.1*sy)
+            rry2 = max(rry1+int(0.9*sy), rry1+8)
+            if rry2 > ry2: break
+            raflar.append((sol_x1, rry1, sol_x2, rry2, i))
+            raflar.append((sag_x1, rry1, sag_x2, rry2, i+100))
+        # Kapinin karsisindaki duvara bitisik
+        if g_duvar == 'alt':
+            n_ust = max(1, int((bit_x-bas_x)/(1.1*sx)))
+            for i in range(n_ust):
+                rrx1 = bas_x + int(i*1.1*sx)
+                rrx2 = max(rrx1+int(0.9*sx), rrx1+8)
+                if rrx2 > bit_x: break
+                raflar.append((rrx1, ry1, rrx2, ry1+dp_y, i+200))
+        else:
+            n_alt = max(1, int((bit_x-bas_x)/(1.1*sx)))
+            for i in range(n_alt):
+                rrx1 = bas_x + int(i*1.1*sx)
+                rrx2 = max(rrx1+int(0.9*sx), rrx1+8)
+                if rrx2 > bit_x: break
+                raflar.append((rrx1, ry2-dp_y, rrx2, ry2, i+200))
+        kalan_txt = f"{len(raflar)} raf" if lang=='tr' else f"{len(raflar)} stell."
 
     # Raflari ciz
     for r in raflar:
-        ciz_raf(draw, r[0], r[1], r[2], r[3], TURUNCU, YESIL, MAVI, GRI)
-
-    toplam_raf = len(raflar)
+        ciz_raf(draw, r[0], r[1], r[2], r[3])
 
     # Olcular
     draw.line([ox, oy-16, ox+pw, oy-16], fill=AGRI, width=1)
@@ -373,10 +303,10 @@ def teknik_resim_ciz(d, lang, tip, sonuclar):
     draw.rectangle([0, iy, W, H], fill='#161b22')
     draw.line([0, iy, W, iy], fill='#404060', width=2)
 
-    lx, ly = 20, iy + 14
+    lx, ly = 20, iy+14
     if lang == 'tr':
         items = [
-            (MAVI,    "● Dikme",          f"{yukseklik} m"),
+            (MAVI,    "● Dikme",          f"{raf_yuk} m"),
             (TURUNCU, "━ Yatay Baglanti", f"{raf_g} m"),
             (YESIL,   "| Derinlik",        "1.10 m"),
             (MOR,     "↔ Koridor",         f"{koridor} m"),
@@ -384,7 +314,7 @@ def teknik_resim_ciz(d, lang, tip, sonuclar):
         ]
     else:
         items = [
-            (MAVI,    "● Stoyka",          f"{yukseklik} m"),
+            (MAVI,    "● Stoyka",          f"{raf_yuk} m"),
             (TURUNCU, "━ Balka",           f"{raf_g} m"),
             (YESIL,   "| Glubina",          "1.10 m"),
             (MOR,     "↔ Prokhod",          f"{koridor} m"),
@@ -395,22 +325,22 @@ def teknik_resim_ciz(d, lang, tip, sonuclar):
         draw.text((lx+220, ly), olcu, fill=BEYAZ, font=fb)
         ly += 25
 
-    rx2b, ry2b = W//2 + 20, iy + 14
+    rx2b, ry2b = W//2+20, iy+14
     if lang == 'tr':
         bilgiler = [
-            ("Kat",          str(kat)),
-            ("Toplam Raf",   str(toplam_raf)),
-            ("Raf Tipi",     tip),
-            ("Kenar Bosluk", f"{kb2} m"),
-            ("Durum",        kalan_bilgi),
+            ("Kat",        str(kat)),
+            ("Toplam Raf", str(len(raflar))),
+            ("Tip",        tip),
+            ("Kenar",      f"{kb2} m"),
+            ("Durum",      kalan_txt),
         ]
     else:
         bilgiler = [
-            ("Yarusov",      str(kat)),
-            ("Vsego stell.", str(toplam_raf)),
-            ("Tip",          tip),
-            ("Otstup",       f"{kb2} m"),
-            ("Status",       kalan_bilgi),
+            ("Yarusov",    str(kat)),
+            ("Vsego",      str(len(raflar))),
+            ("Tip",        tip),
+            ("Otstup",     f"{kb2} m"),
+            ("Status",     kalan_txt),
         ]
     for k, v in bilgiler:
         draw.text((rx2b, ry2b), f"{k}:", fill=AGRI, font=fn)
@@ -418,20 +348,13 @@ def teknik_resim_ciz(d, lang, tip, sonuclar):
         ry2b += 25
 
     buf = io.BytesIO()
-    img.save(buf, format='PNG', dpi=(150, 150))
+    img.save(buf, format='PNG', dpi=(150,150))
     buf.seek(0)
-    return buf, toplam_raf, kalan_bilgi
+    return buf, len(raflar), kalan_txt
 
-# --- HANDLERS ---
+# ---- HANDLERS ----
 
-async def start(update, context):
-    await update.message.reply_text(
-        "Dil secin / Выберите язык:",
-        reply_markup=kb([["🇹🇷 Turkce", "🇷🇺 Russkiy"]])
-    )
-    return LANG
-
-async def hesapla(update, context):
+async def baslat(update, context):
     context.user_data.clear()
     await update.message.reply_text(
         "Dil secin / Выберите язык:",
@@ -443,19 +366,15 @@ async def lang_sec(update, context):
     t = update.message.text
     context.user_data['lang'] = 'ru' if "Russkiy" in t else 'tr'
     lang = get_lang(context)
-    msg = ("📏 Depo uzunlugu (metre):\nOrnek: 20"
-           if lang=='tr' else
-           "📏 Длина склада (метры):\nПример: 20")
+    msg = "📏 Depo uzunlugu (m):\nOrnek: 20" if lang=='tr' else "📏 Длина склада (м):\nПример: 20"
     await update.message.reply_text(msg, reply_markup=ReplyKeyboardRemove())
     return UZUNLUK
 
 async def uzunluk_h(update, context):
     lang = get_lang(context)
     try:
-        context.user_data['uzunluk'] = float(update.message.text.replace(',', '.'))
-        msg = ("📐 Depo genisligi (metre):\nOrnek: 12"
-               if lang=='tr' else
-               "📐 Ширина склада (метры):\nПример: 12")
+        context.user_data['uzunluk'] = float(update.message.text.replace(',','.'))
+        msg = "📐 Depo genisligi (m):\nOrnek: 12" if lang=='tr' else "📐 Ширина склада (м):\nПример: 12"
         await update.message.reply_text(msg)
         return GENISLIK
     except:
@@ -465,31 +384,29 @@ async def uzunluk_h(update, context):
 async def genislik_h(update, context):
     lang = get_lang(context)
     try:
-        context.user_data['genislik'] = float(update.message.text.replace(',', '.'))
-        msg = ("📏 Depo yuksekligi (metre):\nOrnek: 6"
-               if lang=='tr' else
-               "📏 Высота склада (метры):\nПример: 6")
+        context.user_data['genislik'] = float(update.message.text.replace(',','.'))
+        msg = "📏 Depo yuksekligi (m):\nOrnek: 6" if lang=='tr' else "📏 Высота склада (м):\nПример: 6"
         await update.message.reply_text(msg)
-        return YUKSEKLIK
+        return DEPO_YUK
     except:
         await update.message.reply_text("Sadece rakam. Ornek: 12" if lang=='tr' else "Только цифры. Пример: 12")
         return GENISLIK
 
-async def yukseklik_depo_h(update, context):
+async def depo_yuk_h(update, context):
     lang = get_lang(context)
     try:
-        context.user_data['depo_yukseklik'] = float(update.message.text.replace(',', '.'))
+        context.user_data['depo_yukseklik'] = float(update.message.text.replace(',','.'))
         if lang == 'tr':
             msg = "🚪 Giris kapisi hangi duvarda?"
-            rows = [["Alt duvar", "Ust duvar"], ["Sol duvar", "Sag duvar"]]
+            rows = [["Alt duvar","Ust duvar"],["Sol duvar","Sag duvar"]]
         else:
-            msg = "🚪 На какой стене находится вход?"
-            rows = [["Нижняя стена", "Верхняя стена"], ["Левая стена", "Правая стена"]]
+            msg = "🚪 На какой стене вход?"
+            rows = [["Нижняя стена","Верхняя стена"],["Левая стена","Правая стена"]]
         await update.message.reply_text(msg, reply_markup=kb(rows))
         return GIRIS_DUVAR
     except:
         await update.message.reply_text("Sadece rakam. Ornek: 6" if lang=='tr' else "Только цифры. Пример: 6")
-        return YUKSEKLIK
+        return DEPO_YUK
 
 async def giris_duvar_h(update, context):
     lang = get_lang(context)
@@ -499,11 +416,11 @@ async def giris_duvar_h(update, context):
     elif "sol" in t or "лев" in t: context.user_data['giris_duvar'] = 'sol'
     else: context.user_data['giris_duvar'] = 'sag'
     if lang == 'tr':
+        rows = [["Sol yakin","Orta","Sag yakin"]]
         msg = "🚪 Kapinin konumu?"
-        rows = [["Sol yakin", "Orta", "Sag yakin"]]
     else:
+        rows = [["Левее","По центру","Правее"]]
         msg = "🚪 Где именно вход?"
-        rows = [["Левее", "По центру", "Правее"]]
     await update.message.reply_text(msg, reply_markup=kb(rows))
     return GIRIS_KONUM
 
@@ -513,10 +430,10 @@ async def giris_konum_h(update, context):
     if "orta" in t or "центру" in t:
         context.user_data['giris_konum'] = 'orta'
         context.user_data['giris_mesafe'] = 0.0
-        msg = ("🏗 Giris onunde yukleme/bosaltma alani kac metre?\nOrnek: 3"
+        msg = ("🏗 Yukleme/bosaltma alani kac metre?\nOrnek: 3"
                if lang=='tr' else
-               "🏗 Зона погрузки/разгрузки перед входом (м)?\nПример: 3")
-        await update.message.reply_text(msg, reply_markup=kb([["2", "3", "4", "5"]]))
+               "🏗 Зона погрузки/разгрузки (м)?\nПример: 3")
+        await update.message.reply_text(msg, reply_markup=kb([["2","3","4","5"]]))
         return GIRIS_BOSLUK
     elif "sol" in t or "левее" in t:
         context.user_data['giris_konum'] = 'sol'
@@ -531,11 +448,11 @@ async def giris_konum_h(update, context):
 async def giris_mesafe_h(update, context):
     lang = get_lang(context)
     try:
-        context.user_data['giris_mesafe'] = float(update.message.text.replace(',', '.'))
-        msg = ("🏗 Giris onunde yukleme/bosaltma alani kac metre?\nOrnek: 3"
+        context.user_data['giris_mesafe'] = float(update.message.text.replace(',','.'))
+        msg = ("🏗 Yukleme/bosaltma alani kac metre?\nOrnek: 3"
                if lang=='tr' else
-               "🏗 Зона погрузки/разгрузки перед входом (м)?\nПример: 3")
-        await update.message.reply_text(msg, reply_markup=kb([["2", "3", "4", "5"]]))
+               "🏗 Зона погрузки/разгрузки (м)?\nПример: 3")
+        await update.message.reply_text(msg, reply_markup=kb([["2","3","4","5"]]))
         return GIRIS_BOSLUK
     except:
         await update.message.reply_text("Sadece rakam. Ornek: 2" if lang=='tr' else "Только цифры. Пример: 2")
@@ -544,11 +461,11 @@ async def giris_mesafe_h(update, context):
 async def giris_bosluk_h(update, context):
     lang = get_lang(context)
     try:
-        context.user_data['giris_bosluk'] = float(update.message.text.replace(',', '.'))
-        msg = ("📐 Raf ile duvar arasi bosluk (m)?\n0 = duvara bitisik\nOrnek: 0.5"
+        context.user_data['giris_bosluk'] = float(update.message.text.replace(',','.'))
+        msg = ("📐 Raf-duvar arasi bosluk (m)?\n0 = bitisik\nOrnek: 0.5"
                if lang=='tr' else
-               "📐 Отступ стеллажей от стен (м)?\n0 = вплотную\nПример: 0.5")
-        await update.message.reply_text(msg, reply_markup=kb([["0", "0.5", "1"]]))
+               "📐 Отступ от стен (м)?\n0 = вплотную\nПример: 0.5")
+        await update.message.reply_text(msg, reply_markup=kb([["0","0.5","1"]]))
         return KENAR_BOSLUK
     except:
         await update.message.reply_text("Sadece rakam." if lang=='tr' else "Только цифры.")
@@ -557,64 +474,62 @@ async def giris_bosluk_h(update, context):
 async def kenar_bosluk_h(update, context):
     lang = get_lang(context)
     try:
-        context.user_data['kenar_bosluk'] = float(update.message.text.replace(',', '.'))
+        context.user_data['kenar_bosluk'] = float(update.message.text.replace(',','.'))
         if lang == 'tr':
             msg = "🚦 Koridor tipi?\nForklift — 3.0m\nTranspalet — 2.0m\nEl ile — 1.2m"
         else:
             msg = "🚦 Тип прохода?\nПогрузчик — 3.0м\nТранспалет — 2.0м\nРучной — 1.2м"
         await update.message.reply_text(msg, reply_markup=kb([
-            ["Forklift", "Transpalet", "El ile" if lang=='tr' else "Ruchnoy"]
+            ["Forklift","Transpalet","El ile" if lang=='tr' else "Ruchnoy"]
         ]))
         return KORIDOR_TIPI
     except:
         await update.message.reply_text("Sadece rakam." if lang=='tr' else "Только цифры.")
         return KENAR_BOSLUK
 
-async def koridor_tipi_sec(update, context):
+async def koridor_h(update, context):
     lang = get_lang(context)
     t = update.message.text.lower()
     if "forklift" in t or "погрузчик" in t: context.user_data['koridor_tipi'] = 'forklift'
     elif "transpalet" in t or "транспалет" in t: context.user_data['koridor_tipi'] = 'transpalet'
     else: context.user_data['koridor_tipi'] = 'el'
     if lang == 'tr':
-        msg = "📦 Raf basina palet sayisi?\n1 — 0.95m\n2 — 1.85m\n3 — 2.70m\n4 — 3.60m"
+        msg = "📦 Raf basina palet?\n1 — 0.95m\n2 — 1.85m\n3 — 2.70m\n4 — 3.60m"
     else:
-        msg = "📦 Количество паллет на ряд?\n1 — 0.95м\n2 — 1.85м\n3 — 2.70м\n4 — 3.60м"
-    await update.message.reply_text(msg, reply_markup=kb([["1", "2"], ["3", "4"]]))
+        msg = "📦 Паллет на ряд?\n1 — 0.95м\n2 — 1.85м\n3 — 2.70м\n4 — 3.60м"
+    await update.message.reply_text(msg, reply_markup=kb([["1","2"],["3","4"]]))
     return PALET
 
 async def palet_h(update, context):
     lang = get_lang(context)
     try:
         v = int(update.message.text.strip()[0])
-        if v not in [1, 2, 3, 4]: raise ValueError
+        if v not in [1,2,3,4]: raise ValueError
         context.user_data['palet'] = v
-        msg = "🏗 Raf kat sayisi?\nOrnek: 3" if lang=='tr' else "🏗 Количество ярусов?\nПример: 3"
+        msg = "🏗 Kat sayisi?\nOrnek: 3" if lang=='tr' else "🏗 Количество ярусов?\nПример: 3"
         await update.message.reply_text(msg, reply_markup=ReplyKeyboardRemove())
         return KAT
     except:
-        await update.message.reply_text("1, 2, 3 veya 4 girin." if lang=='tr' else "Введите 1, 2, 3 или 4.")
+        await update.message.reply_text("1-4 arasi girin." if lang=='tr' else "Введите 1-4.")
         return PALET
 
 async def kat_h(update, context):
     lang = get_lang(context)
     try:
         context.user_data['kat'] = int(update.message.text)
-        msg = "📏 Raf yuksekligi (metre)?\nOrnek: 5" if lang=='tr' else "📏 Высота стеллажа (м)?\nПример: 5"
+        msg = "📏 Raf yuksekligi (m)?\nOrnek: 5" if lang=='tr' else "📏 Высота стеллажа (м)?\nПример: 5"
         await update.message.reply_text(msg)
-        return YUKSEKLIK
+        return RAF_YUK
     except:
         await update.message.reply_text("Sadece rakam. Ornek: 3" if lang=='tr' else "Только цифры. Пример: 3")
         return KAT
 
-async def raf_yukseklik_h(update, context):
+async def raf_yuk_h(update, context):
     lang = get_lang(context)
     try:
-        context.user_data['yukseklik'] = float(update.message.text.replace(',', '.'))
+        context.user_data['raf_yuk'] = float(update.message.text.replace(',','.'))
         d = context.user_data
-
-        # En iyi tipi hesapla
-        en_iyi, sonuclar = hesapla_en_iyi_tip(
+        en_iyi, sonuclar = hesapla_tipler(
             d['uzunluk'], d['genislik'],
             PALET_GENISLIK[d['palet']],
             KORIDOR_GENISLIK[d['koridor_tipi']],
@@ -623,27 +538,32 @@ async def raf_yukseklik_h(update, context):
             d['giris_bosluk']
         )
         context.user_data['sonuclar'] = sonuclar
-        context.user_data['en_iyi_tip'] = en_iyi
+        context.user_data['en_iyi'] = en_iyi
 
-        s = sonuclar[en_iyi]
+        si = sonuclar['I']
+        sl = sonuclar['L']
+        su = sonuclar['U']
+
         if lang == 'tr':
-            msg = (f"🤖 SISTEM ONERİSİ\n"
+            msg = (f"🤖 SİSTEM ÖNERİSİ\n"
                    f"━━━━━━━━━━━━━━━━\n"
-                   f"En uygun raf tipi: {en_iyi}\n\n"
-                   f"I tipi: {sonuclar['I']['toplam']} raf ({sonuclar['I']['satir']} sira x {sonuclar['I']['perz']} sutun)\n"
-                   f"L tipi: {sonuclar['L']['toplam']} raf\n"
-                   f"U tipi: {sonuclar['U']['toplam']} raf\n\n"
-                   f"Onerim: {en_iyi} tipi en fazla raf sigiyor.\n"
+                   f"📊 Karsilastirma:\n"
+                   f"I tipi: {si['toplam']} raf ({si['satir']} sira × {si['perz']} sutun)\n"
+                   f"L tipi: {sl['toplam']} raf\n"
+                   f"U tipi: {su['toplam']} raf\n\n"
+                   f"✅ Öneri: {en_iyi} tipi ({sonuclar[en_iyi]['toplam']} raf)\n"
+                   f"Deponuza en fazla raf bu tipte sigiyor.\n\n"
                    f"Onayliyor musunuz?")
             rows = [[f"✅ {en_iyi} tipini onayla", "🔄 Baska tip sec"]]
         else:
-            msg = (f"🤖 РЕКОМЕНДАЦИЯ СИСТЕМЫ\n"
+            msg = (f"🤖 РЕКОМЕНДАЦИЯ\n"
                    f"━━━━━━━━━━━━━━━━\n"
-                   f"Оптимальный тип: {en_iyi}\n\n"
-                   f"Тип I: {sonuclar['I']['toplam']} стелл. ({sonuclar['I']['satir']} рядов x {sonuclar['I']['perz']} колонн)\n"
-                   f"Тип L: {sonuclar['L']['toplam']} стелл.\n"
-                   f"Тип U: {sonuclar['U']['toplam']} стелл.\n\n"
-                   f"Рекомендую тип {en_iyi} — максимум стеллажей.\n"
+                   f"📊 Сравнение:\n"
+                   f"Тип I: {si['toplam']} стелл. ({si['satir']} рядов × {si['perz']} колонн)\n"
+                   f"Тип L: {sl['toplam']} стелл.\n"
+                   f"Тип U: {su['toplam']} стелл.\n\n"
+                   f"✅ Рекомендую: Тип {en_iyi} ({sonuclar[en_iyi]['toplam']} стелл.)\n"
+                   f"Максимум стеллажей для вашего склада.\n\n"
                    f"Подтверждаете?")
             rows = [[f"✅ Тип {en_iyi} — подтвердить", "🔄 Выбрать другой"]]
 
@@ -651,66 +571,60 @@ async def raf_yukseklik_h(update, context):
         return ONERI_ONAYLA
     except Exception as e:
         await update.message.reply_text(f"Hata: {e}")
-        return YUKSEKLIK
+        return RAF_YUK
 
-async def oneri_onayla_h(update, context):
+async def oneri_h(update, context):
     lang = get_lang(context)
     t = update.message.text.lower()
     d = context.user_data
-
     if "baska" in t or "другой" in t or "🔄" in t:
         if lang == 'tr':
-            msg = "Hangi tipi tercih edersiniz?\nI — Paralel siralar\nL — Iki duvara bitisik\nU — Uc duvara bitisik"
+            msg = "Hangi tipi istersiniz?\nI — Paralel siralar\nL — Iki duvara bitisik\nU — Uc duvara bitisik"
         else:
-            msg = "Какой тип предпочитаете?\nI — Параллельные ряды\nL — Вдоль двух стен\nU — Вдоль трёх стен"
-        await update.message.reply_text(msg, reply_markup=kb([["I", "L", "U"]]))
+            msg = "Какой тип выбрать?\nI — Параллельные ряды\nL — Вдоль двух стен\nU — Вдоль трёх стен"
+        await update.message.reply_text(msg, reply_markup=kb([["I","L","U"]]))
         return MANUEL_TIP
-
-    # Onaylandi
-    tip = d['en_iyi_tip']
-    await _cizim_yap(update, context, lang, tip)
+    tip = d['en_iyi']
+    await _ciz(update, context, lang, tip)
     return ConversationHandler.END
 
-async def manuel_tip_h(update, context):
+async def manuel_h(update, context):
     lang = get_lang(context)
     t = update.message.text.strip().upper()[0]
-    if t not in ['I', 'L', 'U']:
+    if t not in ['I','L','U']:
         await update.message.reply_text("I, L veya U girin." if lang=='tr' else "I, L или U.")
         return MANUEL_TIP
-    await _cizim_yap(update, context, lang, t)
+    await _ciz(update, context, lang, t)
     return ConversationHandler.END
 
-async def _cizim_yap(update, context, lang, tip):
+async def _ciz(update, context, lang, tip):
     d = context.user_data
-    sonuclar = d.get('sonuclar', {})
+    sonuclar = d.get('sonuclar')
     if not sonuclar:
-        _, sonuclar = hesapla_en_iyi_tip(
+        _, sonuclar = hesapla_tipler(
             d['uzunluk'], d['genislik'],
             PALET_GENISLIK[d['palet']],
             KORIDOR_GENISLIK[d['koridor_tipi']],
-            d.get('kenar_bosluk', 0),
+            d.get('kenar_bosluk',0),
             d['giris_duvar'],
             d['giris_bosluk']
         )
-
     await update.message.reply_text(
-        "⏳ Teknik cizim hazirlaniyor..." if lang=='tr' else "⏳ Подготовка чертежа...",
+        "⏳ Cizim hazirlaniyor..." if lang=='tr' else "⏳ Подготовка чертежа...",
         reply_markup=ReplyKeyboardRemove()
     )
     try:
-        resim, toplam, kalan = teknik_resim_ciz(d, lang, tip, sonuclar)
+        resim, toplam, kalan = teknik_ciz(d, lang, tip, sonuclar)
         if lang == 'tr':
-            cap = (f"TEKNIK CIZIM — Tip: {tip}\n"
-                   f"Depo: {d['uzunluk']}x{d['genislik']}m\n"
-                   f"Toplam raf: {toplam} adet | Kat: {d['kat']}\n"
-                   f"Yukseklik: {d['yukseklik']}m | {kalan}\n"
-                   f"Fiyat icin: /hesapla")
+            cap = (f"TEKNİK CİZİM — Tip: {tip}\n"
+                   f"Depo: {d['uzunluk']}×{d['genislik']}m\n"
+                   f"Toplam raf: {toplam} | Kat: {d['kat']} | Yuk: {d['raf_yuk']}m\n"
+                   f"{kalan}\nFiyat: /hesapla")
         else:
-            cap = (f"CHERTEZH — Tip: {tip}\n"
-                   f"Sklad: {d['uzunluk']}x{d['genislik']}m\n"
-                   f"Stell.: {toplam} sht | Yarusov: {d['kat']}\n"
-                   f"Vysota: {d['yukseklik']}m | {kalan}\n"
-                   f"Raschet: /raschet")
+            cap = (f"ЧЕРТЁЖ — Тип: {tip}\n"
+                   f"Склад: {d['uzunluk']}×{d['genislik']}м\n"
+                   f"Стеллажей: {toplam} | Ярусов: {d['kat']} | Выс.: {d['raf_yuk']}м\n"
+                   f"{kalan}\nРасчёт: /raschet")
         await update.message.reply_photo(photo=resim, caption=cap)
     except Exception as e:
         await update.message.reply_text(f"Hata: {e}")
@@ -718,7 +632,7 @@ async def _cizim_yap(update, context, lang, tip):
 async def iptal(update, context):
     lang = get_lang(context)
     await update.message.reply_text(
-        "Iptal. /hesapla ile baslayin." if lang=='tr' else "Отменено. /raschet",
+        "Iptal. /hesapla yazin." if lang=='tr' else "Отменено. /raschet",
         reply_markup=ReplyKeyboardRemove()
     )
     return ConversationHandler.END
@@ -728,27 +642,29 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
     conv = ConversationHandler(
         entry_points=[
-            CommandHandler('start', hesapla),
-            CommandHandler('hesapla', hesapla),
-            CommandHandler('raschet', hesapla),
+            CommandHandler('start', baslat),
+            CommandHandler('hesapla', baslat),
+            CommandHandler('raschet', baslat),
         ],
         states={
-            LANG:          [MessageHandler(filters.TEXT & ~filters.COMMAND, lang_sec)],
-            UZUNLUK:       [MessageHandler(filters.TEXT & ~filters.COMMAND, uzunluk_h)],
-            GENISLIK:      [MessageHandler(filters.TEXT & ~filters.COMMAND, genislik_h)],
-            YUKSEKLIK:     [MessageHandler(filters.TEXT & ~filters.COMMAND, yukseklik_depo_h)],
-            GIRIS_DUVAR:   [MessageHandler(filters.TEXT & ~filters.COMMAND, giris_duvar_h)],
-            GIRIS_KONUM:   [MessageHandler(filters.TEXT & ~filters.COMMAND, giris_konum_h)],
-            GIRIS_MESAFE:  [MessageHandler(filters.TEXT & ~filters.COMMAND, giris_mesafe_h)],
-            GIRIS_BOSLUK:  [MessageHandler(filters.TEXT & ~filters.COMMAND, giris_bosluk_h)],
-            KENAR_BOSLUK:  [MessageHandler(filters.TEXT & ~filters.COMMAND, kenar_bosluk_h)],
-            KORIDOR_TIPI:  [MessageHandler(filters.TEXT & ~filters.COMMAND, koridor_tipi_sec)],
-            PALET:         [MessageHandler(filters.TEXT & ~filters.COMMAND, palet_h)],
-            KAT:           [MessageHandler(filters.TEXT & ~filters.COMMAND, kat_h)],
-            ONERI_ONAYLA:  [MessageHandler(filters.TEXT & ~filters.COMMAND, oneri_onayla_h)],
-            MANUEL_TIP:    [MessageHandler(filters.TEXT & ~filters.COMMAND, manuel_tip_h)],
+            LANG:         [MessageHandler(filters.TEXT & ~filters.COMMAND, lang_sec)],
+            UZUNLUK:      [MessageHandler(filters.TEXT & ~filters.COMMAND, uzunluk_h)],
+            GENISLIK:     [MessageHandler(filters.TEXT & ~filters.COMMAND, genislik_h)],
+            DEPO_YUK:     [MessageHandler(filters.TEXT & ~filters.COMMAND, depo_yuk_h)],
+            GIRIS_DUVAR:  [MessageHandler(filters.TEXT & ~filters.COMMAND, giris_duvar_h)],
+            GIRIS_KONUM:  [MessageHandler(filters.TEXT & ~filters.COMMAND, giris_konum_h)],
+            GIRIS_MESAFE: [MessageHandler(filters.TEXT & ~filters.COMMAND, giris_mesafe_h)],
+            GIRIS_BOSLUK: [MessageHandler(filters.TEXT & ~filters.COMMAND, giris_bosluk_h)],
+            KENAR_BOSLUK: [MessageHandler(filters.TEXT & ~filters.COMMAND, kenar_bosluk_h)],
+            KORIDOR_TIPI: [MessageHandler(filters.TEXT & ~filters.COMMAND, koridor_h)],
+            PALET:        [MessageHandler(filters.TEXT & ~filters.COMMAND, palet_h)],
+            KAT:          [MessageHandler(filters.TEXT & ~filters.COMMAND, kat_h)],
+            RAF_YUK:      [MessageHandler(filters.TEXT & ~filters.COMMAND, raf_yuk_h)],
+            ONERI_ONAYLA: [MessageHandler(filters.TEXT & ~filters.COMMAND, oneri_h)],
+            MANUEL_TIP:   [MessageHandler(filters.TEXT & ~filters.COMMAND, manuel_h)],
         },
         fallbacks=[CommandHandler('iptal', iptal)],
     )
     app.add_handler(conv)
     app.run_polling()
+ENDOFFILE
