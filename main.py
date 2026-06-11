@@ -12,104 +12,79 @@ TOKEN = os.environ.get("TOKEN")
 
 PALET_G   = {1: 0.95, 2: 1.85, 3: 2.7, 4: 3.6}
 KORIDOR_G = {"forklift": 3.0, "transpalet": 2.0, "el": 1.2}
-DERINLIK  = 1.1
+DR        = 1.1  # raf derinligi
 
-def glang(c): return c.user_data.get('lang', 'tr')
+def glang(c): return c.user_data.get('lang','tr')
 def kb(r):    return ReplyKeyboardMarkup(r, one_time_keyboard=True, resize_keyboard=True)
 
-def hesapla_layout(d):
-    U   = d['uzunluk'];  G = d['genislik']
-    pg  = PALET_G[d['palet']]
-    kor = KORIDOR_G[d['koridor_tipi']]
-    kb2 = d.get('kenar_bosluk', 0.0)
-    yen = d.get('yuk_en', 5.0)
-    ybo = d.get('yuk_boy', 5.0)
-    kat = d['kat']
-
-    ef_x = max(U - kb2*2, 0.1)
-    ef_y = max(G - kb2*2 - ybo, 0.1)
-    yuk_m2 = round(yen * ybo, 1)
-
-    # Blok = sirt sirta raf cifti: genisligi X yonunde = DERINLIK*2 + kor
-    blok_x = DERINLIK * 2 + kor
-
+def hesapla(d):
+    U=d['uzunluk']; G=d['genislik']
+    pg=PALET_G[d['palet']]; kor=KORIDOR_G[d['koridor_tipi']]
+    kb2=d.get('kenar_bosluk',0.0)
+    yen=d.get('yuk_en',5.0); ybo=d.get('yuk_boy',5.0)
+    kat=d['kat']
+    ef_x=max(U-kb2*2,0.1); ef_y=max(G-kb2*2-ybo,0.1)
+    yuk_m2=round(yen*ybo,1)
+    blok=DR*2+kor
     # I_MAKS
-    i_blok = max(1, int(ef_x / blok_x))
-    i_raf_y = max(1, int(ef_y / pg))
-    i_raf   = i_blok * 2 * i_raf_y
-    i_alan  = i_blok * blok_x * ef_y
-
+    ib=max(1,int(ef_x/blok)); iry=max(1,int(ef_y/pg))
+    i_raf=ib*2*iry; i_alan=ib*blok*ef_y
     # U_MAKS
-    ic_x      = ef_x - DERINLIK*2 - kor*2
-    orta_blok = max(0, int(ic_x / blok_x)) if ic_x > 0 else 0
-    raf_y_say = max(1, int(ef_y / pg))
-    raf_x_arka = max(1, int(ef_x / pg))
-    u_raf = raf_y_say + raf_y_say + raf_x_arka + orta_blok * 2 * raf_y_say
-    u_alan = DERINLIK*ef_y*2 + DERINLIK*ef_x + orta_blok*blok_x*ef_y
-
-    depo_alani = round(U * G, 1)
-
-    base = {
-        'ef_x': ef_x, 'ef_y': ef_y,
-        'depo_alani': depo_alani, 'yuk_m2': yuk_m2,
-        'yuk_en': yen, 'yuk_boy': ybo,
-    }
+    ic_x=ef_x-DR*2-kor*2
+    ob=max(0,int(ic_x/blok)) if ic_x>0 else 0
+    rys=max(1,int(ef_y/pg)); rxa=max(1,int(ef_x/pg))
+    u_raf=rys+rys+rxa+ob*2*rys
+    u_alan=DR*ef_y*2+DR*ef_x+ob*blok*ef_y
+    da=round(U*G,1)
+    b={'ef_x':ef_x,'ef_y':ef_y,'depo_alani':da,'yuk_m2':yuk_m2,'yuk_en':yen,'yuk_boy':ybo}
     return {
-        'U_MAKS': {**base, 'tip':'U_MAKS', 'toplam':u_raf,
-                   'raf_y_say':raf_y_say, 'raf_x_arka':raf_x_arka, 'orta_blok':orta_blok,
-                   'raf_alani':round(min(u_alan,U*G*0.88),1),
-                   'verim':round(min(u_alan,U*G*0.88)/depo_alani*100,1),
-                   'kapasite':u_raf*kat*d['palet']},
-        'I_MAKS': {**base, 'tip':'I_MAKS', 'toplam':i_raf,
-                   'raf_y_say':i_raf_y, 'blok':i_blok,
-                   'raf_alani':round(i_alan,1),
-                   'verim':round(i_alan/depo_alani*100,1),
-                   'kapasite':i_raf*kat*d['palet']},
+        'U_MAKS':{**b,'tip':'U_MAKS','toplam':u_raf,'rys':rys,'rxa':rxa,'ob':ob,
+                  'raf_alani':round(min(u_alan,U*G*0.88),1),
+                  'verim':round(min(u_alan,U*G*0.88)/da*100,1),'kapasite':u_raf*kat*d['palet']},
+        'I_MAKS':{**b,'tip':'I_MAKS','toplam':i_raf,'iry':iry,'ib':ib,
+                  'raf_alani':round(i_alan,1),
+                  'verim':round(i_alan/da*100,1),'kapasite':i_raf*kat*d['palet']},
     }
 
-def ciz_raf_dik(draw, x1, y1, x2, y2):
+def raf_koridor_paralel(draw, x1, y1, x2, y2):
     """
-    RAF KAPIYA DIK:
-    x1..x2 = DERINLIK (kisa kenar, koridora dik)
-    y1..y2 = pg (uzun kenar, koridora paralel)
-    Yatay baglanti (turuncu) = y1 ve y2 kenarlarda (koridora PARALEL) ✓
-    Derinlik (yesil) = x1 ve x2 kenarlarda
+    Raf KAPIYA DIK, koridora PARALEL yatay baglanti.
+    Raf birimi: x kisa (DR=1.1m), y uzun (pg)
+    Turuncu (yatay bag): Y yonunde UST ve ALT kenar = koridora PARALEL
+    Yesil (derinlik): X yonunde SOL ve SAG kenar
     """
-    draw.rectangle([x1,y1,x2,y2], fill='#081420')
-    draw.line([x1,y1,x2,y2], fill='#1a2535', width=1)
-    draw.line([x2,y1,x1,y2], fill='#1a2535', width=1)
-    draw.rectangle([x1,y1,x2,y2], outline='#2a3a50', width=1)
-    # Yatay baglanti: Y yonunde UST ve ALT = koridora PARALEL
-    draw.line([x1+2, y1, x2-2, y1], fill='#ff8c42', width=3)
-    draw.line([x1+2, y2, x2-2, y2], fill='#ff8c42', width=3)
-    # Derinlik: X yonunde SOL ve SAG
-    draw.line([x1, y1+2, x1, y2-2], fill='#4ade80', width=2)
-    draw.line([x2, y1+2, x2, y2-2], fill='#4ade80', width=2)
-    # Dikmeler
+    draw.rectangle([x1,y1,x2,y2],fill='#081420')
+    draw.line([x1,y1,x2,y2],fill='#1a2535',width=1)
+    draw.line([x2,y1,x1,y2],fill='#1a2535',width=1)
+    draw.rectangle([x1,y1,x2,y2],outline='#2a3a50',width=1)
+    # Turuncu: UST ve ALT (Y yonu = koridora paralel)
+    draw.line([x1+2,y1,x2-2,y1],fill='#ff8c42',width=3)
+    draw.line([x1+2,y2,x2-2,y2],fill='#ff8c42',width=3)
+    # Yesil: SOL ve SAG (X yonu = koridora dik = raf derinligi)
+    draw.line([x1,y1+2,x1,y2-2],fill='#4ade80',width=2)
+    draw.line([x2,y1+2,x2,y2-2],fill='#4ade80',width=2)
     for px,py in [(x1,y1),(x2,y1),(x1,y2),(x2,y2)]:
-        draw.ellipse([px-4,py-4,px+4,py+4], fill='#4a9eff', outline='white', width=1)
+        draw.ellipse([px-4,py-4,px+4,py+4],fill='#4a9eff',outline='white',width=1)
 
-def ciz_raf_paralel(draw, x1, y1, x2, y2):
+def raf_kapi_paralel(draw, x1, y1, x2, y2):
     """
-    RAF KAPIYA PARALEL (sadece arka duvar):
-    x1..x2 = pg (uzun kenar, koridora dik = kapiya paralel)
-    y1..y2 = DERINLIK (kisa kenar)
-    Yatay baglanti (turuncu) = x1 ve x2 kenarlarda (kapiya PARALEL) ✓
-    Derinlik (yesil) = y1 ve y2 kenarlarda
+    Raf KAPIYA PARALEL (sadece U_MAKS arka duvar).
+    Raf birimi: x uzun (pg), y kisa (DR=1.1m)
+    Turuncu (yatay bag): X yonunde SOL ve SAG kenar = kapiya PARALEL
+    Yesil (derinlik): Y yonunde UST ve ALT kenar
     """
-    draw.rectangle([x1,y1,x2,y2], fill='#081420')
-    draw.line([x1,y1,x2,y2], fill='#1a2535', width=1)
-    draw.line([x2,y1,x1,y2], fill='#1a2535', width=1)
-    draw.rectangle([x1,y1,x2,y2], outline='#2a3a50', width=1)
-    # Yatay baglanti: X yonunde SOL ve SAG = kapiya PARALEL
-    draw.line([x1, y1+2, x1, y2-2], fill='#ff8c42', width=3)
-    draw.line([x2, y1+2, x2, y2-2], fill='#ff8c42', width=3)
-    # Derinlik: Y yonunde UST ve ALT
-    draw.line([x1+2, y1, x2-2, y1], fill='#4ade80', width=2)
-    draw.line([x1+2, y2, x2-2, y2], fill='#4ade80', width=2)
-    # Dikmeler
+    draw.rectangle([x1,y1,x2,y2],fill='#081420')
+    draw.line([x1,y1,x2,y2],fill='#1a2535',width=1)
+    draw.line([x2,y1,x1,y2],fill='#1a2535',width=1)
+    draw.rectangle([x1,y1,x2,y2],outline='#2a3a50',width=1)
+    # Turuncu: SOL ve SAG (X yonu = kapiya paralel)
+    draw.line([x1,y1+2,x1,y2-2],fill='#ff8c42',width=3)
+    draw.line([x2,y1+2,x2,y2-2],fill='#ff8c42',width=3)
+    # Yesil: UST ve ALT (Y yonu = raf derinligi)
+    draw.line([x1+2,y1,x2-2,y1],fill='#4ade80',width=2)
+    draw.line([x1+2,y2,x2-2,y2],fill='#4ade80',width=2)
     for px,py in [(x1,y1),(x2,y1),(x1,y2),(x2,y2)]:
-        draw.ellipse([px-4,py-4,px+4,py+4], fill='#4a9eff', outline='white', width=1)
+        draw.ellipse([px-4,py-4,px+4,py+4],fill='#4a9eff',outline='white',width=1)
 
 def oy(draw,x1,x2,y,t,f,c):
     draw.line([x1,y,x2,y],fill=c,width=1)
@@ -123,34 +98,31 @@ def od(draw,x,y1,y2,t,f,c):
     draw.line([x-4,y2,x+4,y2],fill=c,width=2)
     draw.text((x+5,(y1+y2)//2),t,fill=c,font=f,anchor='lm')
 
-def ciz_teknik(d, lg, sec, sira):
-    U   = d['uzunluk'];  G = d['genislik']
-    pg  = PALET_G[d['palet']]
-    kor = KORIDOR_G[d['koridor_tipi']]
-    kb2 = d.get('kenar_bosluk', 0.0)
-    gk  = d.get('giris_konum', 'orta')
-    gm  = d.get('giris_mesafe', 0.0)
-    gg  = d.get('giris_genislik', 4.0)
-    kat = d['kat'];  ry = d['raf_yuk']
-    tip = sec['tip']
-    yen = sec['yuk_en'];  ybo = sec['yuk_boy'];  ym2 = sec['yuk_m2']
+def ciz(d,lg,sec,sira):
+    U=d['uzunluk']; G=d['genislik']
+    pg=PALET_G[d['palet']]; kor=KORIDOR_G[d['koridor_tipi']]
+    kb2=d.get('kenar_bosluk',0.0)
+    gk=d.get('giris_konum','orta'); gm=d.get('giris_mesafe',0.0)
+    gg=d.get('giris_genislik',4.0)
+    kat=d['kat']; ry=d['raf_yuk']
+    tip=sec['tip']
+    yen=sec['yuk_en']; ybo=sec['yuk_boy']; ym2=sec['yuk_m2']
 
-    W,H = 1200, 980
-    img  = Image.new('RGB',(W,H),'#0d1117')
-    draw = ImageDraw.Draw(img)
+    W,H=1200,980
+    img=Image.new('RGB',(W,H),'#0d1117')
+    draw=ImageDraw.Draw(img)
 
     try:
-        fb =ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",13)
-        fn =ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",11)
-        ft =ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",17)
+        fb=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",13)
+        fn=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",11)
+        ft=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",17)
         fsm=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",10)
         fxs=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",9)
     except:
         fb=fn=ft=fsm=fxs=ImageFont.load_default()
 
-    W2='#e8e8e8'; AG='#505070'; SA='#ffd700'
-    SI='#00b4d8'; MO='#c084fc'; YE='#22c55e'
-    TU='#ff8c42'; GR='#4ade80'; MA='#4a9eff'
+    W2='#e8e8e8'; AG='#505070'; SA='#ffd700'; SI='#00b4d8'
+    MO='#c084fc'; YE='#22c55e'; TU='#ff8c42'; GR='#4ade80'; MA='#4a9eff'
 
     INFO_H=200
     pl,pt,pr,pb=80,55,50,INFO_H+48
@@ -163,10 +135,8 @@ def ciz_teknik(d, lg, sec, sira):
     tad={'U_MAKS':('U-MAKS: Duvar+Orta','U-МАКС: Стены+Центр'),
          'I_MAKS':('I-MAKS: Sirt Sirta','I-МАКС: Спина к спине')}
     tn=tad.get(tip,(tip,tip))[1 if lg=='ru' else 0]
-    if lg=='tr':
-        bl=f"SECENEK {sira}/2  |  {tn}  |  {sec['toplam']} raf  |  Verim:%{sec['verim']}"
-    else:
-        bl=f"ВАРИАНТ {sira}/2  |  {tn}  |  {sec['toplam']} стелл.  |  КПД:{sec['verim']}%"
+    bl=(f"SECENEK {sira}/2  |  {tn}  |  {sec['toplam']} raf  |  Verim:%{sec['verim']}" if lg=='tr'
+        else f"ВАРИАНТ {sira}/2  |  {tn}  |  {sec['toplam']} стелл.  |  КПД:{sec['verim']}%")
     draw.text((W//2,21),bl,fill=SA,font=ft,anchor='mm')
 
     # DEPO
@@ -175,13 +145,12 @@ def ciz_teknik(d, lg, sec, sira):
 
     # KAPI
     Gpx=max(int(gg*sx),35)
-    if gk=='orta':    gx=ox+pw//2
-    elif gk=='sol':   gx=ox+int(gm*sx)+Gpx//2
-    else:             gx=ox+pw-int(gm*sx)-Gpx//2
+    if gk=='orta':  gx=ox+pw//2
+    elif gk=='sol': gx=ox+int(gm*sx)+Gpx//2
+    else:           gx=ox+pw-int(gm*sx)-Gpx//2
 
     # YUKLEME ALANI
-    yup=min(int(yen*sx),pw-4)
-    ybp=int(ybo*sy)
+    yup=min(int(yen*sx),pw-4); ybp=int(ybo*sy)
     yx1=max(ox+2,gx-yup//2); yx2=min(ox+pw-2,gx+yup//2)
     yy1=oy0+ph-ybp; yy2=oy0+ph-2
     draw.rectangle([yx1,yy1,yx2,yy2],fill='#031a0d',outline=YE,width=2)
@@ -191,11 +160,9 @@ def ciz_teknik(d, lg, sec, sira):
               f"{yen}x{ybo}m={ym2}m²",fill=YE,font=fb,anchor='mm')
     oy(draw,yx1,yx2,yy1-12,f"{yen}m",fsm,YE)
     od(draw,yx2+8,yy1,yy2,f"{ybo}m",fsm,YE)
-
-    # KAPI
     draw.line([gx-Gpx//2,oy0+ph,gx+Gpx//2,oy0+ph],fill=SA,width=8)
-    kapi_lbl="GİRİŞ/ÇIKIŞ" if lg=='tr' else "ВХОД/ВЫХОД"
-    draw.text((gx,oy0+ph+10),kapi_lbl,fill=SA,font=fsm,anchor='mt')
+    kl="GİRİŞ/ÇIKIŞ" if lg=='tr' else "ВХОД/ВЫХОД"
+    draw.text((gx,oy0+ph+10),kl,fill=SA,font=fsm,anchor='mt')
     oy(draw,gx-Gpx//2,gx+Gpx//2,oy0+ph+24,f"{gg}m",fsm,SA)
     if gm>0 and gk!='orta':
         if gk=='sol': oy(draw,ox,gx-Gpx//2,oy0+ph+38,f"{gm}m",fsm,W2)
@@ -206,182 +173,153 @@ def ciz_teknik(d, lg, sec, sira):
     od(draw,ox-20,oy0,oy0+ph,f"{G}m",fn,W2)
 
     # RAF ALANI
-    rax1=ox+int(kb2*sx);    ray1=oy0+int(kb2*sy)
+    rax1=ox+int(kb2*sx); ray1=oy0+int(kb2*sy)
     rax2=ox+pw-int(kb2*sx); ray2=oy0+ph-int(ybo*sy)-int(kb2*sy)
 
-    # Piksel
-    dr_px  = max(int(DERINLIK*sx),5)  # DERINLIK X yonunde
-    pg_px  = max(int(pg*sy),6)        # palet genisligi Y yonunde
-    kor_px = max(int(kor*sx),4)       # koridor X yonunde
-    blok_x_px = dr_px*2 + kor_px
+    # Piksel boyutlari
+    # Raf KAPIYA DIK: x=DR(1.1m kisa), y=pg(palet uzun)
+    dr_x=max(int(DR*sx),5)   # derinlik X yonunde
+    pg_y=max(int(pg*sy),6)   # palet genisligi Y yonunde
+    kor_x=max(int(kor*sx),4) # koridor X yonunde
+    blok_x=dr_x*2+kor_x      # sirt sirta blok
 
-    # pg X yonunde (arka duvar icin)
-    pg_x_px = max(int(pg*sx),6)
-    # DERINLIK Y yonunde (arka duvar icin)
-    dr_y_px = max(int(DERINLIK*sy),5)
+    # Arka duvar icin: x=pg(uzun), y=DR(kisa)
+    pg_x=max(int(pg*sx),6)   # palet genisligi X yonunde (arka duvar)
+    dr_y=max(int(DR*sy),5)   # derinlik Y yonunde (arka duvar)
 
-    raflar = []  # (x1,y1,x2,y2,tur) tur='dik' veya 'paralel'
+    raflar=[]  # (x1,y1,x2,y2,fonk) fonk=0:koridor_paralel, 1:kapi_paralel
 
-    if tip == 'I_MAKS':
+    if tip=='I_MAKS':
         # X yonunde sirt sirta bloklar
-        # Her blok: [raf(dr_px) | kor(kor_px) | raf(dr_px)] X yonunde
-        # Y yonunde pg_px aralikli
-        # Raf yon: KAPIYA DIK
-        x_pos = rax1
-        blk = 0
-        while x_pos + blok_x_px <= rax2 and blk < sec['blok']:
-            bx1=x_pos;        bx2=bx1+dr_px
-            bx3=bx2+kor_px;   bx4=bx3+dr_px
-            y_pos = ray1
-            while y_pos + pg_px <= ray2:
-                raflar.append((bx1, y_pos, bx2, y_pos+pg_px, 'dik'))
-                raflar.append((bx3, y_pos, bx4, y_pos+pg_px, 'dik'))
-                y_pos += pg_px
-            if blk==0:
+        # Turuncu UST/ALT = koridora paralel
+        x=rax1; b=0
+        while x+blok_x<=rax2 and b<sec['ib']:
+            bx1=x; bx2=bx1+dr_x; bx3=bx2+kor_x; bx4=bx3+dr_x
+            yp=ray1
+            while yp+pg_y<=ray2:
+                raflar.append((bx1,yp,bx2,yp+pg_y,0))
+                raflar.append((bx3,yp,bx4,yp+pg_y,0))
+                yp+=pg_y
+            if b==0:
                 oy(draw,bx2,bx3,ray1-14,f"{kor}m",fsm,MO)
-                od(draw,rax1-18,ray1,ray1+dr_px,f"{DERINLIK}m",fsm,GR)
-                od(draw,rax1-18,ray1,ray1+pg_px,f"{pg}m",fsm,MO)
-            x_pos = bx4 + max(int(0.1*sx),2)
-            blk += 1
+                od(draw,rax1-18,ray1,ray1+dr_x,f"{DR}m",fsm,GR)
+                od(draw,rax1-18,ray1,ray1+pg_y,f"{pg}m",fsm,MO)
+            x=bx4+max(int(0.1*sx),2); b+=1
 
-    elif tip == 'U_MAKS':
-        sol_x1=rax1;         sol_x2=rax1+dr_px
-        sag_x1=rax2-dr_px;   sag_x2=rax2
-        arka_y1=ray1;         arka_y2=ray1+dr_y_px
+    elif tip=='U_MAKS':
+        sx1=rax1; sx2=rax1+dr_x   # sol duvar
+        rx1=rax2-dr_x; rx2=rax2   # sag duvar
+        ay1=ray1; ay2=ray1+dr_y   # arka duvar Y siniri
 
-        # SOL DUVAR: kapiya dik raflar
-        y_pos=ray1
-        while y_pos+pg_px<=ray2:
-            raflar.append((sol_x1,y_pos,sol_x2,y_pos+pg_px,'dik'))
-            y_pos+=pg_px
+        # SOL DUVAR: kapiya dik, turuncu=koridora paralel
+        yp=ray1
+        while yp+pg_y<=ray2:
+            raflar.append((sx1,yp,sx2,yp+pg_y,0)); yp+=pg_y
 
-        # SAG DUVAR: kapiya dik raflar
-        y_pos=ray1
-        while y_pos+pg_px<=ray2:
-            raflar.append((sag_x1,y_pos,sag_x2,y_pos+pg_px,'dik'))
-            y_pos+=pg_px
+        # SAG DUVAR: kapiya dik, turuncu=koridora paralel
+        yp=ray1
+        while yp+pg_y<=ray2:
+            raflar.append((rx1,yp,rx2,yp+pg_y,0)); yp+=pg_y
 
-        # ARKA DUVAR: kapiya PARALEL raflar (yatay baglanti kapiya paralel)
-        x_pos=sol_x2+kor_px
-        while x_pos+pg_x_px<=sag_x1-kor_px:
-            raflar.append((x_pos,arka_y1,x_pos+pg_x_px,arka_y2,'paralel'))
-            x_pos+=pg_x_px
+        # ARKA DUVAR: kapiya PARALEL, turuncu=kapiya paralel
+        # x boyutu=pg_x (uzun, X yonunde), y boyutu=dr_y (kisa, Y yonunde)
+        xp=sx2+kor_x
+        while xp+pg_x<=rx1-kor_x:
+            raflar.append((xp,ay1,xp+pg_x,ay2,1)); xp+=pg_x
 
-        # Olcular
-        od(draw,rax1-18,ray1,ray1+dr_px,f"{DERINLIK}m",fsm,GR)
-        od(draw,rax1-18,ray1,ray1+pg_px,f"{pg}m",fsm,MO)
-        oy(draw,sol_x2,sol_x2+kor_px,ray1-14,f"{kor}m",fsm,MO)
+        od(draw,rax1-18,ray1,ray1+dr_x,f"{DR}m",fsm,GR)
+        od(draw,rax1-18,ray1,ray1+pg_y,f"{pg}m",fsm,MO)
+        oy(draw,sx2,sx2+kor_x,ray1-14,f"{kor}m",fsm,MO)
 
-        # ORTA SIRT SIRTA BLOKLAR: kapiya dik
-        orta_x1=sol_x2+kor_px
-        orta_x2=sag_x1-kor_px
-        orta_y_bas=arka_y2+kor_px
-        x_pos=orta_x1
-        blk=0
-        while x_pos+blok_x_px<=orta_x2 and blk<sec['orta_blok']:
-            bx1=x_pos;        bx2=bx1+dr_px
-            bx3=bx2+kor_px;   bx4=bx3+dr_px
-            y_pos=orta_y_bas
-            while y_pos+pg_px<=ray2:
-                raflar.append((bx1,y_pos,bx2,y_pos+pg_px,'dik'))
-                raflar.append((bx3,y_pos,bx4,y_pos+pg_px,'dik'))
-                y_pos+=pg_px
-            if blk==0:
-                oy(draw,bx2,bx3,orta_y_bas-14,f"{kor}m",fsm,MO)
-            x_pos=bx4+max(int(0.1*sx),2)
-            blk+=1
+        # ORTA BLOKLAR: kapiya dik, turuncu=koridora paralel
+        ox1=sx2+kor_x; ox2=rx1-kor_x
+        oy_bas=ay2+kor_x
+        xp=ox1; b=0
+        while xp+blok_x<=ox2 and b<sec['ob']:
+            bx1=xp; bx2=bx1+dr_x; bx3=bx2+kor_x; bx4=bx3+dr_x
+            yp=oy_bas
+            while yp+pg_y<=ray2:
+                raflar.append((bx1,yp,bx2,yp+pg_y,0))
+                raflar.append((bx3,yp,bx4,yp+pg_y,0))
+                yp+=pg_y
+            if b==0: oy(draw,bx2,bx3,oy_bas-14,f"{kor}m",fsm,MO)
+            xp=bx4+max(int(0.1*sx),2); b+=1
 
-    # RAFLARI CIZ
+    # CIZ
     for r in raflar:
-        if r[4]=='dik':
-            ciz_raf_dik(draw,r[0],r[1],r[2],r[3])
-        else:
-            ciz_raf_paralel(draw,r[0],r[1],r[2],r[3])
+        if r[4]==0: raf_koridor_paralel(draw,r[0],r[1],r[2],r[3])
+        else:       raf_kapi_paralel(draw,r[0],r[1],r[2],r[3])
 
-    # ALT BILGI - 3 sutun
+    # ALT BILGI
     iy=H-INFO_H
     draw.rectangle([0,iy,W,H],fill='#161b22')
     draw.line([0,iy,W,iy],fill='#404060',width=2)
 
-    dk=len(raflar)*4; yt=len(raflar)*kat*2; dr_s=len(raflar)*2
+    dk=len(raflar)*4; yt=len(raflar)*kat*2; ds=len(raflar)*2
     kap=sec['toplam']*kat*d['palet']
-    sep='#303050'
-    c1=20; c2=W//3+10; c3=W*2//3+10
+    sep='#303050'; c1=20; c2=W//3+10; c3=W*2//3+10
 
-    # SUTUN 1: MALZEME
+    # Sutun 1: Malzeme
     lx=c1; ly=iy+14
     if lg=='tr':
-        draw.text((lx,ly),"MALZEME LİSTESİ",fill=SA,font=fb); ly+=20
-        draw.text((lx,ly),"● Dikme:",fill=MA,font=fb)
-        draw.text((lx+85,ly),f"1={ry}m | {dk}x | Top:{round(dk*ry,1)}m",fill=W2,font=fn); ly+=18
-        draw.text((lx,ly),"━ Yatay Bag.:",fill=TU,font=fb)
-        draw.text((lx+85,ly),f"1={pg}m | {yt}x | Top:{round(yt*pg,1)}m",fill=W2,font=fn); ly+=18
-        draw.text((lx,ly),"| Derinlik:",fill=GR,font=fb)
-        draw.text((lx+85,ly),f"1=1.1m | {dr_s}x | Top:{round(dr_s*1.1,1)}m",fill=W2,font=fn); ly+=18
-        draw.text((lx,ly),"▦ Yukleme:",fill=YE,font=fb)
-        draw.text((lx+85,ly),f"{yen}x{ybo}m = {ym2}m²",fill=YE,font=fn); ly+=18
-        draw.text((lx,ly),"↔ Koridor:",fill=MO,font=fb)
-        draw.text((lx+85,ly),f"{kor}m | Kapi:{gg}m | Kat:{kat}",fill=W2,font=fn)
+        draw.text((lx,ly),"MALZEME",fill=SA,font=fb); ly+=20
+        for lbl,clr,val in [("● Dikme",MA,f"1={ry}m|{dk}x|Top:{round(dk*ry,1)}m"),
+                             ("━ Yatay",TU,f"1={pg}m|{yt}x|Top:{round(yt*pg,1)}m"),
+                             ("| Derinlik",GR,f"1=1.1m|{ds}x|Top:{round(ds*1.1,1)}m"),
+                             ("▦ Yukleme",YE,f"{yen}x{ybo}m={ym2}m²"),
+                             ("↔ Koridor",MO,f"{kor}m|Kapi:{gg}m|Kat:{kat}")]:
+            draw.text((lx,ly),lbl+":",fill=clr,font=fb)
+            draw.text((lx+88,ly),val,fill=W2,font=fn); ly+=18
     else:
         draw.text((lx,ly),"МАТЕРИАЛЫ",fill=SA,font=fb); ly+=20
-        draw.text((lx,ly),"● Стойка:",fill=MA,font=fb)
-        draw.text((lx+80,ly),f"1={ry}м | {dk}x | Ит:{round(dk*ry,1)}м",fill=W2,font=fn); ly+=18
-        draw.text((lx,ly),"━ Балка:",fill=TU,font=fb)
-        draw.text((lx+80,ly),f"1={pg}м | {yt}x | Ит:{round(yt*pg,1)}м",fill=W2,font=fn); ly+=18
-        draw.text((lx,ly),"| Глубина:",fill=GR,font=fb)
-        draw.text((lx+80,ly),f"1=1.1м | {dr_s}x | Ит:{round(dr_s*1.1,1)}м",fill=W2,font=fn); ly+=18
-        draw.text((lx,ly),"▦ Зона:",fill=YE,font=fb)
-        draw.text((lx+80,ly),f"{yen}x{ybo}м = {ym2}м²",fill=YE,font=fn); ly+=18
-        draw.text((lx,ly),"↔ Проход:",fill=MO,font=fb)
-        draw.text((lx+80,ly),f"{kor}м | Вор:{gg}м | Яр:{kat}",fill=W2,font=fn)
+        for lbl,clr,val in [("● Стойка",MA,f"1={ry}м|{dk}x|Ит:{round(dk*ry,1)}м"),
+                             ("━ Балка",TU,f"1={pg}м|{yt}x|Ит:{round(yt*pg,1)}м"),
+                             ("| Глубина",GR,f"1=1.1м|{ds}x|Ит:{round(ds*1.1,1)}м"),
+                             ("▦ Зона",YE,f"{yen}x{ybo}м={ym2}м²"),
+                             ("↔ Проход",MO,f"{kor}м|Вор:{gg}м|Яр:{kat}")]:
+            draw.text((lx,ly),lbl+":",fill=clr,font=fb)
+            draw.text((lx+85,ly),val,fill=W2,font=fn); ly+=18
 
     draw.line([c2-10,iy+10,c2-10,H-10],fill=sep,width=1)
 
-    # SUTUN 2: VERIM ANALIZI
+    # Sutun 2: Verim analizi
     lx=c2; ly=iy+14
     if lg=='tr':
         draw.text((lx,ly),"VERİM ANALİZİ",fill=SA,font=fb); ly+=20
-        for k,v in [("Toplam Raf",str(sec['toplam'])),
-                    ("Palet Kapasitesi",f"{kap} palet"),
-                    ("Raf Alani",f"{sec['raf_alani']} m²"),
-                    ("Kat Sayisi",str(kat)),
-                    ("Raf Yuksekligi",f"{ry} m")]:
+        for k,v in [("Toplam Raf",str(sec['toplam'])),("Palet Kap.",f"{kap} palet"),
+                    ("Raf Alani",f"{sec['raf_alani']} m²"),("Kat",str(kat)),("Raf Yuk.",f"{ry}m")]:
             draw.text((lx,ly),f"{k}:",fill=AG,font=fn)
-            draw.text((lx+155,ly),v,fill=W2,font=fb); ly+=18
+            draw.text((lx+150,ly),v,fill=W2,font=fb); ly+=18
     else:
         draw.text((lx,ly),"АНАЛИЗ КПД",fill=SA,font=fb); ly+=20
-        for k,v in [("Стеллажей",str(sec['toplam'])),
-                    ("Ёмкость",f"{kap} палл."),
-                    ("Пл.стелл.",f"{sec['raf_alani']} м²"),
-                    ("Ярусов",str(kat)),
-                    ("Высота стелл.",f"{ry} м")]:
+        for k,v in [("Стеллажей",str(sec['toplam'])),("Ёмкость",f"{kap} палл."),
+                    ("Пл.стелл.",f"{sec['raf_alani']} м²"),("Ярусов",str(kat)),("Высота",f"{ry}м")]:
             draw.text((lx,ly),f"{k}:",fill=AG,font=fn)
-            draw.text((lx+155,ly),v,fill=W2,font=fb); ly+=18
+            draw.text((lx+150,ly),v,fill=W2,font=fb); ly+=18
 
     draw.line([c3-10,iy+10,c3-10,H-10],fill=sep,width=1)
 
-    # SUTUN 3: DEPO VERIMI
+    # Sutun 3: Depo verimi
     lx=c3; ly=iy+14
+    bos=round(sec['depo_alani']-sec['raf_alani']-ym2,1)
     if lg=='tr':
         draw.text((lx,ly),"DEPO VERİMİ",fill=SA,font=fb); ly+=20
-        bos=round(sec['depo_alani']-sec['raf_alani']-ym2,1)
         for k,v,c in [("Depo Alani",f"{sec['depo_alani']} m²",W2),
                       ("Raf Alani",f"{sec['raf_alani']} m²",W2),
-                      ("Yukleme Alani",f"{ym2} m²",YE),
+                      ("Yukleme",f"{ym2} m²",YE),
                       ("Bos Alan",f"{bos} m²",AG),
                       ("VERİM",f"%{sec['verim']}",SA)]:
             draw.text((lx,ly),f"{k}:",fill=AG,font=fn)
-            draw.text((lx+155,ly),v,fill=c,font=fb if k=="VERİM" else fn); ly+=18
+            draw.text((lx,ly+14),v,fill=c,font=fb if k=="VERİM" else fn); ly+=32
     else:
         draw.text((lx,ly),"КПД СКЛАДА",fill=SA,font=fb); ly+=20
-        bos=round(sec['depo_alani']-sec['raf_alani']-ym2,1)
         for k,v,c in [("Пл.склада",f"{sec['depo_alani']} м²",W2),
                       ("Пл.стелл.",f"{sec['raf_alani']} м²",W2),
-                      ("Зона погр.",f"{ym2} м²",YE),
-                      ("Своб.площ.",f"{bos} м²",AG),
+                      ("Зона",f"{ym2} м²",YE),
+                      ("Своб.",f"{bos} м²",AG),
                       ("КПД",f"{sec['verim']}%",SA)]:
             draw.text((lx,ly),f"{k}:",fill=AG,font=fn)
-            draw.text((lx+155,ly),v,fill=c,font=fb if k=="КПД" else fn); ly+=18
+            draw.text((lx,ly+14),v,fill=c,font=fb if k=="КПД" else fn); ly+=32
 
     buf=io.BytesIO()
     img.save(buf,format='PNG',dpi=(150,150))
@@ -551,27 +489,24 @@ async def raf_yuk_h(update,context):
     try:
         context.user_data['raf_yuk']=float(update.message.text.replace(',','.'))
         d=context.user_data
-        layouts=hesapla_layout(d)
+        layouts=hesapla(d)
         await update.message.reply_text(
             "⏳ 2 secenek hazirlaniyor..." if lg=='tr' else "⏳ Готовлю 2 варианта...",
             reply_markup=ReplyKeyboardRemove())
         secs=[layouts['U_MAKS'],layouts['I_MAKS']]
         secs.sort(key=lambda x:x['toplam'],reverse=True)
         for i,sec in enumerate(secs):
-            resim=ciz_teknik(d,lg,sec,i+1)
-            ttr={'U_MAKS':'U-MAKS','I_MAKS':'I-MAKS'}
-            tru={'U_MAKS':'U-МАКС','I_MAKS':'I-МАКС'}
-            tn=tru.get(sec['tip']) if lg=='ru' else ttr.get(sec['tip'])
+            resim=ciz(d,lg,sec,i+1)
+            tn={'U_MAKS':'U-МAKS' if lg=='ru' else 'U-MAKS',
+                'I_MAKS':'I-МАКС' if lg=='ru' else 'I-MAKS'}.get(sec['tip'],sec['tip'])
             kap=sec['toplam']*d['kat']*d['palet']
-            if lg=='tr':
-                cap=(f"{'⭐ EN İYİ — ' if i==0 else ''}{i+1}. {tn}\n"
-                     f"Raf:{sec['toplam']} | Kap:{kap} palet | Verim:%{sec['verim']}")
-            else:
-                cap=(f"{'⭐ ЛУЧШИЙ — ' if i==0 else ''}{i+1}. {tn}\n"
-                     f"Стелл:{sec['toplam']} | Ёмк:{kap} | КПД:{sec['verim']}%")
+            cap=(f"{'⭐ EN İYİ — ' if i==0 else ''}{i+1}. {tn}\n"
+                 f"Raf:{sec['toplam']} | Kap:{kap} palet | Verim:%{sec['verim']}" if lg=='tr'
+                 else f"{'⭐ ЛУЧШИЙ — ' if i==0 else ''}{i+1}. {tn}\n"
+                      f"Стелл:{sec['toplam']} | Ёмк:{kap} | КПД:{sec['verim']}%")
             await update.message.reply_photo(photo=resim,caption=cap)
         await update.message.reply_text(
-            "✅ Hazir! Yeni cizim: /hesapla" if lg=='tr' else "✅ Готово! Новый: /raschet")
+            "✅ Hazir! /hesapla" if lg=='tr' else "✅ Готово! /raschet")
         return ConversationHandler.END
     except Exception as e:
         await update.message.reply_text(f"Hata: {e}")
