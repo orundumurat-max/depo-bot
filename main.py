@@ -58,6 +58,25 @@ def iso_pt(x, y, z, ox, oy, s):
     iy = oy - z * s + (x + y) * s * math.sin(math.radians(30))
     return (int(ix), int(iy))
 
+def compute_iso_transform(U, G, Zmax, W, H, top_margin=90, bottom_margin=250, side_margin=90):
+    """Fit the (U x G x Zmax) warehouse box centered in the visible drawing area
+    (between the header and the bottom info panel), regardless of U/G/Zmax ratio."""
+    cos30 = math.cos(math.radians(30))
+    sin30 = math.sin(math.radians(30))
+    draw_w = max(100, W - 2 * side_margin)
+    draw_h = max(100, H - top_margin - bottom_margin)
+    proj_w = (U + G) * cos30
+    proj_h = (U + G) * sin30 + Zmax
+    if proj_w <= 0 or proj_h <= 0:
+        s = 20.0
+    else:
+        s = min(draw_w / proj_w, draw_h / proj_h)
+    s = max(10.0, min(55.0, s))
+    ox = W / 2 - (U - G) * s * cos30 / 2
+    center_y = top_margin + draw_h / 2
+    oy = center_y + (Zmax * s - (U + G) * s * sin30) / 2
+    return s, int(ox), int(oy)
+
 def draw_box(draw, x,y,z, w,d,h, s,ox,oy, top,left,right, outline='#000000'):
     p000=iso_pt(x,y,z,ox,oy,s); p100=iso_pt(x+w,y,z,ox,oy,s)
     p010=iso_pt(x,y+d,z,ox,oy,s); p110=iso_pt(x+w,y+d,z,ox,oy,s)
@@ -68,29 +87,37 @@ def draw_box(draw, x,y,z, w,d,h, s,ox,oy, top,left,right, outline='#000000'):
     draw.polygon([p100,p110,p111,p101],fill=right,outline=outline)
 
 def draw_raf(draw, rx,ry,rz, rw,rd,rh, kat, s,ox,oy):
+    # rw = X ekseni boyunca acilik (= DR, sabit derinlik 1.10m -> karsilikli iki dikme arasi)
+    # rd = Y ekseni boyunca acilik (= pg, koridora paralel sira yonu)
     TURUNCU='#ff8c42'; TU_D='#cc5500'; TU_R='#aa3300'
-    GR='#4a9eff'; GR_D='#2255cc'; GR_R='#1a3399'
     DIKME_TOP='#2a6a2a'; DIKME_L='#1a4a1a'; DIKME_R='#122e12'
+    ZZ='#ecdcb8'  # derinlik (zigzag) baglantisi - bej/beyaza yakin
 
     dw=0.06  # dikme genisligi
-    # 4 dikme
+
+    # 4 dikme (koseler)
     for dx,dy in [(0,0),(rw-dw,0),(0,rd-dw),(rw-dw,rd-dw)]:
         draw_box(draw,rx+dx,ry+dy,rz,dw,dw,rh,s,ox,oy,
                  DIKME_TOP,DIKME_L,DIKME_R,'#4a9eff')
 
-    # Alt ve ust cerceve (yatay, Y yonunde = derinlik baglayici)
-    fw=0.05
-    for zz in [rz, rz+rh-fw]:
-        draw_box(draw,rx,ry,zz,rw,fw,fw,s,ox,oy,GR,GR_D,GR_R,'#001133')
-        draw_box(draw,rx,ry+rd-fw,zz,rw,fw,fw,s,ox,oy,GR,GR_D,GR_R,'#001133')
+    # DERINLIK BAGLANTISI (zigzag, bej/beyaz)
+    # Karsilikli iki dikme arasi (X ekseni, DR=1.10m sabit) - her iki cerceve icin (on ve arka)
+    n_zig = max(4, kat*2)
+    for y0 in (ry, ry+rd-dw):
+        pts=[]
+        for i in range(n_zig+1):
+            zz = rz + i*rh/n_zig
+            xx = rx if i % 2 == 0 else rx+rw-dw
+            pts.append(iso_pt(xx+dw/2, y0+dw/2, zz, ox, oy, s))
+        draw.line(pts, fill=ZZ, width=2)
 
-    # Kat baglantilari (turuncu - X yonunde yan baglanti, her kat icin)
-    for k in range(1, kat+1):
-        kz = rz + k * rh / (kat+1)
-        # On taraf (y=ry) - turuncu yan baglanti
-        draw_box(draw,rx,ry,kz,rw,fw,fw,s,ox,oy,TURUNCU,TU_D,TU_R,'#330000')
-        # Arka taraf (y=ry+rd)
-        draw_box(draw,rx,ry+rd-fw,kz,rw,fw,fw,s,ox,oy,TURUNCU,TU_D,TU_R,'#330000')
+    # YATAY BAGLANTI (turuncu) - dikme sirasina paralel, koridora paralel (Y ekseni)
+    # Ayni taraftaki (on/arka) dikmeleri birbirine baglar: zemin, ust ve her kat seviyesinde
+    fw=0.05
+    levels=[rz] + [rz + k*rh/(kat+1) for k in range(1, kat+1)] + [rz+rh-fw]
+    for zz in levels:
+        for xx in (rx, rx+rw-dw-fw):
+            draw_box(draw, xx, ry, zz, fw, rd, fw, s, ox, oy, TURUNCU, TU_D, TU_R, '#330000')
 
 def ciz_iso(d, lg, sec, sira):
     U=d['uzunluk']; G=d['genislik']
@@ -112,15 +139,16 @@ def ciz_iso(d, lg, sec, sira):
     W2='#e8e8e8'; AG='#606080'; SA='#ffd700'; SI='#00b4d8'
     MO='#c084fc'; YE='#22c55e'; TU='#ff8c42'; GR='#4ade80'; MA='#4a9eff'
     INFO_H=220
+    HEADER_H=46
 
-    # Scale - BUYUK
-    s = max(18, min(45, int(550 / max(U, G))))
-
-    iso_ox = W//2 - 50
-    iso_oy = 480
+    # Isometrik olcek ve merkezleme - depo (U x G x ry_h) cizim alanina ortalanir
+    s, iso_ox, iso_oy = compute_iso_transform(
+        U, G, ry_h, W, H,
+        top_margin=HEADER_H+44, bottom_margin=INFO_H+30, side_margin=90
+    )
 
     # BASLIK
-    draw.rectangle([0,0,W,46],fill='#161b22')
+    draw.rectangle([0,0,W,HEADER_H],fill='#161b22')
     tad={'U_MAKS':('U-MAKS','U-МАКС'),'I_MAKS':('I-MAKS','I-МАКС')}
     tn=tad.get(tip,('?','?'))[1 if lg=='ru' else 0]
     bl=(f"IZOMETRIK CIZIM  |  SECENEK {sira}/2  |  {tn}  |  {sec['toplam']} raf  |  Verim:%{sec['verim']}" if lg=='tr'
