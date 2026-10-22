@@ -33,17 +33,22 @@ button:hover{opacity:.88;}
 .legend{margin-top:8px;background:white;border:1px solid #cbd5e1;padding:10px;display:flex;flex-wrap:wrap;gap:12px;font-size:11px;}
 .legendItem{display:flex;align-items:center;gap:5px;}
 .legendLine{width:26px;height:4px;flex-shrink:0;}
-.costSection{margin-top:10px;background:white;border:1px solid #cbd5e1;border-radius:8px;padding:12px;}
-.costSection h3{margin:0 0 10px;font-size:14px;}
-.costRow{border-bottom:1px solid #e2e8f0;padding:8px 0;}
-.costRow:last-child{border-bottom:0;}
-.costLabel{font-size:12px;font-weight:bold;color:#334155;margin-bottom:6px;}
-.costFields{display:flex;gap:6px;flex-wrap:wrap;}
-.miniField{flex:1;min-width:64px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:4px 4px;text-align:center;}
-.miniField label{display:block;font-size:8.5px;color:#64748b;text-transform:uppercase;}
-.miniField input{width:100%;border:0;background:transparent;text-align:center;font-size:12.5px;padding:2px 0;}
-.miniField span{font-size:12.5px;font-weight:bold;}
-.costFoot{margin-top:8px;background:#f0fdf4;border:1px solid #16a34a;border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;font-weight:bold;color:#166534;font-size:14px;}
+
+/* ===== EXCEL TABLOSU GÖRÜNÜMÜ ===== */
+.costSection{margin-top:10px;background:white;border:1px solid #cbd5e1;border-radius:8px;padding:0;overflow-x:auto;}
+.costSection h3{margin:0;padding:10px 12px;font-size:14px;background:#111827;color:white;border-radius:8px 8px 0 0;}
+.xlsTable{width:100%;border-collapse:collapse;font-size:12px;}
+.xlsTable thead th{background:#374151;color:white;padding:8px 6px;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;border:1px solid #1f2937;text-align:center;font-weight:bold;}
+.xlsTable tbody td{padding:6px 6px;border:1px solid #cbd5e1;text-align:center;background:white;}
+.xlsTable tbody tr:nth-child(even) td{background:#f8fafc;}
+.xlsTable tbody td.labelCell{text-align:left;font-weight:bold;color:#334155;background:#e2e8f0;}
+.xlsTable tbody tr:nth-child(even) td.labelCell{background:#dbe4ed;}
+.xlsTable input{width:100%;border:0;background:transparent;text-align:center;font-size:12px;padding:2px;font-family:Arial;}
+.xlsTable input:focus{outline:1.5px solid #2563eb;background:#eff6ff;border-radius:2px;}
+.xlsTable .amountCell{font-weight:bold;color:#166534;background:#f0fdf4 !important;}
+.xlsFoot td{background:#16a34a !important;color:white;font-weight:bold;font-size:14px;padding:10px 8px;border:1px solid #15803d;}
+.xlsFoot td:first-child{text-align:left;}
+
 .outputBox{margin-top:10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px;}
 .outputBox h3{margin:0 0 8px;font-size:14px;}
 .footerNote{margin-top:8px;color:#64748b;font-size:10px;line-height:1.4;}
@@ -75,6 +80,7 @@ button:hover{opacity:.88;}
             <option value="AUTO" data-i18n="auto">Programın Önerdiği</option>
             <option value="I" data-i18n="iTipi">I Tipi</option>
             <option value="U" data-i18n="uTipi">U Tipi</option>
+            <option value="L" data-i18n="lTipi">L Tipi</option>
         </select>
     </div>
     <div class="field">
@@ -111,51 +117,64 @@ button:hover{opacity:.88;}
     <div class="legendItem"><span class="legendLine" style="background:#dc2626;"></span><span data-i18n="legendBosTxt">Boşluk</span></div>
 </div>
 
+<!-- ===== EXCEL TABLOSU ===== -->
 <div class="costSection" id="costSection">
     <h3 data-i18n="malzemeBaslik">Malzeme ve Maliyet</h3>
-
-    <div class="costRow"><div class="costLabel" data-i18n="dikme">Dikme (m)</div>
-        <div class="costFields">
-            <div class="miniField"><label data-i18n="adet">Adet</label><span id="mDikme">-</span></div>
-            <div class="miniField"><label>€</label><input type="number" id="fiyatDikme" value="12"></div>
-            <div class="miniField"><label data-i18n="tutar">Tutar</label><span id="tDikme">-</span></div>
-        </div>
-    </div>
-    <div class="costRow"><div class="costLabel" data-i18n="yanBaglanti">Yan Bağlantı</div>
-        <div class="costFields">
-            <div class="miniField"><label data-i18n="adet">Adet</label><span id="mYan">-</span></div>
-            <div class="miniField"><label>€</label><input type="number" id="fiyatYan" value="25"></div>
-            <div class="miniField"><label data-i18n="tutar">Tutar</label><span id="tYan">-</span></div>
-        </div>
-    </div>
-    <div class="costRow"><div class="costLabel" data-i18n="ankraj">Ankraj</div>
-        <div class="costFields">
-            <div class="miniField"><label data-i18n="adet">Adet</label><input type="number" id="ankrajAdet" value="0"></div>
-            <div class="miniField"><label>€</label><input type="number" id="fiyatAnkraj" value="1"></div>
-            <div class="miniField"><label data-i18n="tutar">Tutar</label><span id="tAnkraj">-</span></div>
-        </div>
-    </div>
-    <div class="costRow"><div class="costLabel" data-i18n="zeminMetal">Zemin Düzeltme Metal</div>
-        <div class="costFields">
-            <div class="miniField"><label data-i18n="adet">Adet</label><input type="number" id="zeminAdet" value="0"></div>
-            <div class="miniField"><label>€</label><input type="number" id="fiyatZemin" value="3"></div>
-            <div class="miniField"><label data-i18n="tutar">Tutar</label><span id="tZemin">-</span></div>
-        </div>
-    </div>
-    <div class="costRow"><div class="costLabel" data-i18n="montaj">Montaj</div>
-        <div class="costFields">
-            <div class="miniField"><label>€</label><input type="number" id="fiyatMontaj" value="500"></div>
-            <div class="miniField"><label data-i18n="tutar">Tutar</label><span id="tMontaj">-</span></div>
-        </div>
-    </div>
-    <div class="costRow"><div class="costLabel" data-i18n="transport">Transport</div>
-        <div class="costFields">
-            <div class="miniField"><label>€</label><input type="number" id="fiyatTransport" value="450"></div>
-            <div class="miniField"><label data-i18n="tutar">Tutar</label><span id="tTransport">-</span></div>
-        </div>
-    </div>
-
-    <div class="costFoot"><span data-i18n="toplam">TOPLAM</span><span id="tToplam">-</span></div>
+    <table class="xlsTable">
+        <thead>
+            <tr>
+                <th data-i18n="kalem">Kalem</th>
+                <th data-i18n="adet">Adet</th>
+                <th data-i18n="birimFiyat">Birim Fiyat</th>
+                <th data-i18n="tutar">Tutar</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="labelCell" data-i18n="dikme">Dikme (m)</td>
+                <td><span id="mDikme">-</span></td>
+                <td><input type="number" id="fiyatDikme" value="12" step="0.5"></td>
+                <td class="amountCell"><span id="tDikme">-</span></td>
+            </tr>
+            <tr>
+                <td class="labelCell" data-i18n="yanBaglanti">Yan Bağlantı</td>
+                <td><span id="mYan">-</span></td>
+                <td><input type="number" id="fiyatYan" value="25" step="0.5"></td>
+                <td class="amountCell"><span id="tYan">-</span></td>
+            </tr>
+            <tr>
+                <td class="labelCell" data-i18n="ankraj">Ankraj</td>
+                <td><input type="number" id="ankrajAdet" value="0"></td>
+                <td><input type="number" id="fiyatAnkraj" value="1" step="0.1"></td>
+                <td class="amountCell"><span id="tAnkraj">-</span></td>
+            </tr>
+            <tr>
+                <td class="labelCell" data-i18n="zeminMetal">Zemin Düzeltme Metal</td>
+                <td><input type="number" id="zeminAdet" value="0"></td>
+                <td><input type="number" id="fiyatZemin" value="3" step="0.1"></td>
+                <td class="amountCell"><span id="tZemin">-</span></td>
+            </tr>
+            <tr>
+                <td class="labelCell" data-i18n="montaj">Montaj</td>
+                <td>1</td>
+                <td><input type="number" id="fiyatMontaj" value="500" step="10"></td>
+                <td class="amountCell"><span id="tMontaj">-</span></td>
+            </tr>
+            <tr>
+                <td class="labelCell" data-i18n="transport">Transport</td>
+                <td>1</td>
+                <td><input type="number" id="fiyatTransport" value="450" step="10"></td>
+                <td class="amountCell"><span id="tTransport">-</span></td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr class="xlsFoot">
+                <td data-i18n="toplam">TOPLAM</td>
+                <td colspan="2"></td>
+                <td><span id="tToplam">-</span></td>
+            </tr>
+        </tfoot>
+    </table>
 </div>
 </div>
 
@@ -182,56 +201,61 @@ if (TG) {
     try { if (TG.expand) TG.expand(); } catch(e) {}
 }
 
-/* ================= DİL ================= */
+/* ================= DİL + PARA BİRİMİ ================= */
 var LANG = {
 tr:{title:"DEPO RAF YERLEŞİM PLANI",subtitle:"Teknik yerleşim / kapasite optimizasyonu",depoOlcu:"Depo En × Boy (m)",
-yuklemeAlani:"Yükleme Alanı En × Boy (m)",yerlesim:"Yerleşim",auto:"Programın Önerdiği",iTipi:"I Tipi",uTipi:"U Tipi",
+yuklemeAlani:"Yükleme Alanı En × Boy (m)",yerlesim:"Yerleşim",auto:"Programın Önerdiği",iTipi:"I Tipi",uTipi:"U Tipi",lTipi:"L Tipi",
 koridor:"Araç / Koridor (m)",elArabasi:"El Arabası 1.00m",transpalet:"Transpalet 1.50m",forklift:"Forklift 3.20m",agirlikliForklift:"Ağır Forklift 4.00m",
 rafModulu:"Raf Modülü (m)",rafDerinligi:"Raf Derinliği (m)",katSayisi:"Kat Sayısı",dikmeYuksekligi:"Dikme Yüksekliği (m)",hesapla:"↻ HESAPLA",
-malzemeBaslik:"Malzeme ve Maliyet",dikme:"Dikme (m)",yanBaglanti:"Yan Bağlantı",ankraj:"Ankraj",zeminMetal:"Zemin Düzeltme Metal",
+malzemeBaslik:"Malzeme ve Maliyet Tablosu",kalem:"Kalem",birimFiyat:"Birim Fiyat",dikme:"Dikme (m)",yanBaglanti:"Yan Bağlantı",ankraj:"Ankraj",zeminMetal:"Zemin Düzeltme Metal",
 montaj:"Montaj",transport:"Transport",toplam:"TOPLAM",adet:"Adet",tutar:"Tutar",ciktiBaslik:"Çıktı",pdf:"PDF ÇIKTI",whatsapp:"WhatsApp",telegram:"Telegram",eposta:"E-posta",
 legendRafTxt:"Raf gövdesi",legendYanTxt:"Yan bağlantı",legendYukTxt:"Yükleme / kapı",legendBosTxt:"Boşluk",
 footNote:"Not: Kolon, sprinkler, yangın kaçışları ve yönetmelik şartları ayrıca kontrol edilmelidir.",
 hint:"💡 Rafları parmağınızla sürükleyebilirsiniz. İki parmakla yakınlaştırın. Rafa dokununca bilgi görünür.",
-arac:"ARAÇ",personel:"PERSONEL",tipI:"I Tipi",tipU:"U Tipi",yonEn:"EN",yonBoy:"BOY",yerlesimLbl:"Yerleşim: ",
+arac:"ARAÇ",personel:"PERSONEL",tipI:"I Tipi",tipU:"U Tipi",tipL:"L Tipi",yonEn:"EN",yonBoy:"BOY",yerlesimLbl:"Yerleşim: ",
 statusAuto:"Önerilen yerleşim uygulandı. ",statusMain:"Toplam MODUL raf modülü. Boşluk yaklaşık BOSLUK m².",
 alertOlcu:"Depo ölçülerini kontrol edin.",alertYukleme:"Yükleme alanı depo boyundan küçük olmalı.",alertAlan:"Kullanılabilir alan kalmıyor.",
 alertUygunYok:"Uygun yerleşim bulunamadı.",pdfHata:"PDF oluşturulamadı.",
 rackInfo:"Raf modülü:",pdfSent:"PDF hazırlanıyor, bot üzerinden gönderilecek...",
-pdfFallback:"Telegram dışında indirme başlatıldı."},
+pdfFallback:"Telegram dışında indirme başlatıldı.",currency:"€",currencyCode:"EUR"},
 en:{title:"WAREHOUSE RACK LAYOUT",subtitle:"Technical layout / capacity optimization",depoOlcu:"Warehouse W × L (m)",
-yuklemeAlani:"Loading Area W × L (m)",yerlesim:"Layout",auto:"Program Suggestion",iTipi:"Type I",uTipi:"Type U",
+yuklemeAlani:"Loading Area W × L (m)",yerlesim:"Layout",auto:"Program Suggestion",iTipi:"Type I",uTipi:"Type U",lTipi:"Type L",
 koridor:"Vehicle / Aisle (m)",elArabasi:"Hand Truck 1.00m",transpalet:"Pallet Jack 1.50m",forklift:"Forklift 3.20m",agirlikliForklift:"Counterbalance 4.00m",
 rafModulu:"Bay Width (m)",rafDerinligi:"Rack Depth (m)",katSayisi:"Levels",dikmeYuksekligi:"Upright Height (m)",hesapla:"↻ CALCULATE",
-malzemeBaslik:"Materials and Cost",dikme:"Upright (m)",yanBaglanti:"Beam",ankraj:"Anchor",zeminMetal:"Floor Plate",
+malzemeBaslik:"Materials and Cost Table",kalem:"Item",birimFiyat:"Unit Price",dikme:"Upright (m)",yanBaglanti:"Beam",ankraj:"Anchor",zeminMetal:"Floor Plate",
 montaj:"Installation",transport:"Transport",toplam:"TOTAL",adet:"Qty",tutar:"Amount",ciktiBaslik:"Output",pdf:"EXPORT PDF",whatsapp:"WhatsApp",telegram:"Telegram",eposta:"Email",
 legendRafTxt:"Rack body",legendYanTxt:"Beam",legendYukTxt:"Loading / door",legendBosTxt:"Unused",
 footNote:"Note: Columns, sprinklers, fire exits and code compliance must be checked separately.",
 hint:"💡 Drag racks with finger. Pinch to zoom. Tap a rack to see info.",
-arac:"VEHICLE",personel:"STAFF",tipI:"Type I",tipU:"Type U",yonEn:"WIDTH",yonBoy:"LENGTH",yerlesimLbl:"Layout: ",
+arac:"VEHICLE",personel:"STAFF",tipI:"Type I",tipU:"Type U",tipL:"Type L",yonEn:"WIDTH",yonBoy:"LENGTH",yerlesimLbl:"Layout: ",
 statusAuto:"Suggested layout applied. ",statusMain:"Total MODUL rack bays. Unused approx. BOSLUK m².",
 alertOlcu:"Check warehouse dimensions.",alertYukleme:"Loading area must be smaller than warehouse length.",alertAlan:"No usable area left.",
 alertUygunYok:"No suitable layout found.",pdfHata:"Could not generate PDF.",
 rackInfo:"Rack bay:",pdfSent:"Preparing PDF, will be sent via bot...",
-pdfFallback:"Download started (outside Telegram)."},
+pdfFallback:"Download started (outside Telegram).",currency:"$",currencyCode:"USD"},
 ru:{title:"ПЛАН СКЛАДСКИХ СТЕЛЛАЖЕЙ",subtitle:"Технический план / оптимизация вместимости",depoOlcu:"Склад Ш × Д (м)",
-yuklemeAlani:"Зона погрузки Ш × Д (м)",yerlesim:"Планировка",auto:"Рекомендация",iTipi:"Тип I",uTipi:"Тип U",
+yuklemeAlani:"Зона погрузки Ш × Д (м)",yerlesim:"Планировка",auto:"Рекомендация",iTipi:"Тип I",uTipi:"Тип U",lTipi:"Тип L",
 koridor:"Техника / Проезд (м)",elArabasi:"Тележка 1.00м",transpalet:"Гидротележка 1.50м",forklift:"Погрузчик 3.20м",agirlikliForklift:"Противовес 4.00м",
 rafModulu:"Модуль (м)",rafDerinligi:"Глубина (м)",katSayisi:"Ярусы",dikmeYuksekligi:"Высота стойки (м)",hesapla:"↻ РАССЧИТАТЬ",
-malzemeBaslik:"Материалы и стоимость",dikme:"Стойки (м)",yanBaglanti:"Балки",ankraj:"Анкера",zeminMetal:"Опорные пластины",
+malzemeBaslik:"Материалы и стоимость",kalem:"Наименование",birimFiyat:"Цена за ед.",dikme:"Стойки (м)",yanBaglanti:"Балки",ankraj:"Анкера",zeminMetal:"Опорные пластины",
 montaj:"Монтаж",transport:"Транспорт",toplam:"ИТОГО",adet:"Кол-во",tutar:"Сумма",ciktiBaslik:"Вывод",pdf:"PDF",whatsapp:"WhatsApp",telegram:"Telegram",eposta:"Эл.почта",
 legendRafTxt:"Стеллаж",legendYanTxt:"Балка",legendYukTxt:"Погрузка/дверь",legendBosTxt:"Пусто",
 footNote:"Прим.: колонны, спринклеры, эвакуационные выходы и нормы проверяются отдельно.",
 hint:"💡 Перетаскивайте стеллажи пальцем. Сведите пальцы для масштаба. Коснитесь для информации.",
-arac:"ТЕХНИКА",personel:"ПЕРСОНАЛ",tipI:"Тип I",tipU:"Тип U",yonEn:"Ш",yonBoy:"Д",yerlesimLbl:"Планировка: ",
+arac:"ТЕХНИКА",personel:"ПЕРСОНАЛ",tipI:"Тип I",tipU:"Тип U",tipL:"Тип L",yonEn:"Ш",yonBoy:"Д",yerlesimLbl:"Планировка: ",
 statusAuto:"Применена рекомендованная планировка. ",statusMain:"Всего MODUL модулей. Неисп. ок. BOSLUK м².",
 alertOlcu:"Проверьте размеры склада.",alertYukleme:"Зона погрузки должна быть меньше длины склада.",alertAlan:"Не осталось полезной площади.",
 alertUygunYok:"Подходящая планировка не найдена.",pdfHata:"Не удалось создать PDF.",
 rackInfo:"Модуль:",pdfSent:"PDF готовится, будет отправлен ботом...",
-pdfFallback:"Загрузка начата (вне Telegram)."}
+pdfFallback:"Загрузка начата (вне Telegram).",currency:"₽",currencyCode:"RUB"}
 };
 var currentLang = "tr";
 function t(key){ return (LANG[currentLang] && LANG[currentLang][key]) || key; }
+function cur(){ return t("currency"); }
+function fmtMoney(n){
+    var num = Math.round(n).toLocaleString(undefined,{maximumFractionDigits:0});
+    return num + " " + cur();
+}
 function applyStaticTranslations(){
     var els = document.querySelectorAll("[data-i18n]");
     for (var i=0;i<els.length;i++) els[i].textContent = t(els[i].getAttribute("data-i18n"));
@@ -242,9 +266,8 @@ function setLanguage(lang){ currentLang = lang; applyStaticTranslations(); cizim
 /* ================= AYARLAR ================= */
 const MARJIN = 0.50, KENAR_BOSLUK = 0.30, SIRT_BOSLUK = 0.10;
 
-/* ================= KONVA SAHNE ================= */
+/* ================= KONVA ================= */
 var stage = null, mainLayer = null, viewportGroup = null;
-var DRAW_W = 600, DRAW_H = 560;
 
 function initKonva(){
     var container = document.getElementById("konvaContainer");
@@ -255,16 +278,10 @@ function initKonva(){
     mainLayer = new Konva.Layer();
     stage.add(mainLayer);
 
-    // Zoom + pan grubu — depo çiziminin tamamı bunun içinde
-    viewportGroup = new Konva.Group({
-        x: 0, y: 0, scaleX: 1, scaleY: 1,
-        draggable: true,
-        name: "viewport"
-    });
+    viewportGroup = new Konva.Group({ x:0, y:0, scaleX:1, scaleY:1, draggable:true, name:"viewport" });
     mainLayer.add(viewportGroup);
 
-    // Pinch zoom + tekerlek zoom
-    var lastDist = 0, lastCenter = null;
+    var lastDist = 0;
     stage.on("touchmove", function(e){
         e.evt.preventDefault();
         var touch1 = e.evt.touches[0], touch2 = e.evt.touches[1];
@@ -280,74 +297,51 @@ function initKonva(){
                 var rect = container.getBoundingClientRect();
                 var mx = center.x - rect.left;
                 var my = center.y - rect.top;
-                var pointTo = {
-                    x: (mx - viewportGroup.x()) / oldScale,
-                    y: (my - viewportGroup.y()) / oldScale
-                };
-                viewportGroup.scale({ x: newScale, y: newScale });
-                viewportGroup.position({
-                    x: mx - pointTo.x * newScale,
-                    y: my - pointTo.y * newScale
-                });
+                var pointTo = { x:(mx - viewportGroup.x())/oldScale, y:(my - viewportGroup.y())/oldScale };
+                viewportGroup.scale({ x:newScale, y:newScale });
+                viewportGroup.position({ x:mx - pointTo.x*newScale, y:my - pointTo.y*newScale });
             }
             lastDist = dist;
-            lastCenter = center;
         }
     });
-    stage.on("touchend", function(){ lastDist = 0; lastCenter = null; });
+    stage.on("touchend", function(){ lastDist = 0; });
     stage.on("wheel", function(e){
         e.evt.preventDefault();
         var oldScale = viewportGroup.scaleX();
         var scaleBy = 1.08;
         var pointer = stage.getPointerPosition();
-        var mousePoint = {
-            x: (pointer.x - viewportGroup.x()) / oldScale,
-            y: (pointer.y - viewportGroup.y()) / oldScale
-        };
+        var mousePoint = { x:(pointer.x - viewportGroup.x())/oldScale, y:(pointer.y - viewportGroup.y())/oldScale };
         var dir = e.evt.deltaY > 0 ? 1/scaleBy : scaleBy;
         var newScale = Math.max(0.3, Math.min(4, oldScale * dir));
-        viewportGroup.scale({ x: newScale, y: newScale });
-        viewportGroup.position({
-            x: pointer.x - mousePoint.x * newScale,
-            y: pointer.y - mousePoint.y * newScale
-        });
+        viewportGroup.scale({ x:newScale, y:newScale });
+        viewportGroup.position({ x:pointer.x - mousePoint.x*newScale, y:pointer.y - mousePoint.y*newScale });
     });
-
-    // Pencere yeniden boyutlandırılınca
     window.addEventListener("resize", function(){
         stage.width(container.clientWidth);
         stage.height(container.clientHeight);
     });
 }
 
-/* ================= KONVA YARDIMCILARI ================= */
 function kRect(cfg){ return new Konva.Rect(cfg); }
 function kLine(cfg){ return new Konva.Line(cfg); }
 function kText(cfg){ return new Konva.Text(cfg); }
 
 function miniLabel(group, cx, cy, text, color, bg){
-    var fontSize = 11;
     var w = Math.max(38, text.length * 7 + 10);
-    group.add(kRect({ x: cx-w/2, y: cy-9, width: w, height: 18, fill: bg||"#ffffff",
-        stroke: "#94a3b8", strokeWidth: 0.8, cornerRadius: 3, listening: false }));
-    group.add(kText({ x: cx-w/2, y: cy-5, width: w, text: text, align: "center",
-        fontSize: fontSize, fontFamily: "Courier New, monospace", fontStyle: "bold",
-        fill: color||"#111827", listening: false }));
+    group.add(kRect({ x:cx-w/2, y:cy-9, width:w, height:18, fill:bg||"#ffffff",
+        stroke:"#94a3b8", strokeWidth:0.8, cornerRadius:3, listening:false }));
+    group.add(kText({ x:cx-w/2, y:cy-5, width:w, text:text, align:"center",
+        fontSize:11, fontFamily:"Courier New, monospace", fontStyle:"bold",
+        fill:color||"#111827", listening:false }));
 }
 
-/* ================= RAF ÇİZİMİ (KONVA) ================= */
+/* ================= RAF ÇİZİMİ ================= */
 function drawRackRun(group, x, y, length, depth, modul, scale, horizontal, depthLabel){
     var w = horizontal ? length*scale : depth*scale;
     var h = horizontal ? depth*scale : length*scale;
 
-    var rackGroup = new Konva.Group({
-        x: x, y: y,
-        draggable: true,
-        name: "rackRun"
-    });
-
-    rackGroup.add(kRect({ x:0, y:0, width:w, height:h,
-        fill: "#8fa3bd", stroke: "#1e293b", strokeWidth: 2 }));
+    var rackGroup = new Konva.Group({ x:x, y:y, draggable:true, name:"rackRun" });
+    rackGroup.add(kRect({ x:0, y:0, width:w, height:h, fill:"#8fa3bd", stroke:"#1e293b", strokeWidth:2 }));
 
     var bayCount = Math.max(1, Math.floor(length/modul));
     for (var i=1;i<bayCount;i++){
@@ -363,17 +357,12 @@ function drawRackRun(group, x, y, length, depth, modul, scale, horizontal, depth
         rackGroup.add(kLine({ points:[3,0,3,h], stroke:cc, strokeWidth:4 }));
         rackGroup.add(kLine({ points:[w-3,0,w-3,h], stroke:cc, strokeWidth:4 }));
     }
-
     if (depthLabel) miniLabel(rackGroup, w/2, h/2, depthLabel, "#1d4ed8", "#eff6ff");
 
-    // Tıklama — bilgi ver
     rackGroup.on("pointerclick tap", function(){
         var info = t("rackInfo") + " " + length.toFixed(2) + " m × " + depth.toFixed(2) + " m";
-        if (TG && TG.showAlert) TG.showAlert(info);
-        else alert(info);
+        if (TG && TG.showAlert) TG.showAlert(info); else alert(info);
     });
-
-    // Seçim görseli
     rackGroup.on("pointerdown", function(){
         rackGroup.moveToTop();
         rackGroup.getChildren()[0].stroke("#b91c1c");
@@ -385,7 +374,6 @@ function drawRackRun(group, x, y, length, depth, modul, scale, horizontal, depth
         rackGroup.getChildren()[0].strokeWidth(2);
         mainLayer.draw();
     });
-
     group.add(rackGroup);
     return { bayCount: bayCount, length: length };
 }
@@ -393,9 +381,6 @@ function drawRackRun(group, x, y, length, depth, modul, scale, horizontal, depth
 function drawDoor(group, hingeX, wallY, widthPx, label){
     group.add(kRect({ x:hingeX-1, y:wallY-3.5, width:widthPx+2, height:7, fill:"#fff" }));
     group.add(kLine({ points:[hingeX,wallY,hingeX,wallY-widthPx], stroke:"#111827", strokeWidth:1.3 }));
-    // Yay (yaklaşık çizim için quadratic bezier)
-    var midX = hingeX + widthPx*0.707;
-    var midY = wallY - widthPx*0.707;
     var path = new Konva.Shape({
         sceneFunc: function(ctx, shape){
             ctx.beginPath();
@@ -410,7 +395,7 @@ function drawDoor(group, hingeX, wallY, widthPx, label){
         align:"center", fontSize:9, fill:"#111827", listening:false }));
 }
 
-/* ================= EKSEN PAKETLEME (DEĞİŞMEDİ) ================= */
+/* ================= EKSEN PAKETLEME ================= */
 function eksenPaketle(available, depth, koridor, mode){
     var rows = [], remaining = available;
     if (mode === "single"){
@@ -433,7 +418,7 @@ function eksenPaketle(available, depth, koridor, mode){
     return { rows: rows, leftover: Math.max(0, remaining) };
 }
 
-/* ================= I / U HESAP (DEĞİŞMEDİ) ================= */
+/* ================= I / U / L HESAP ================= */
 function hesaplaI(storageW, storageH, orientation, koridor, modul, rafD){
     var runAxis = orientation === "EN" ? storageW : storageH;
     var stackAxis = orientation === "EN" ? storageH : storageW;
@@ -467,17 +452,63 @@ function hesaplaU(storageW, storageH, koridor, modul, rafD){
         interiorWidth:interiorWidth, interiorHeight:interiorHeight, interiorBays:interiorBays,
         interiorRows:interiorRows, interiorLeftoverStack:interiorLeftoverStack, interiorLeftoverRun:interiorLeftoverRun, total: total };
 }
+/* L TİPİ: sadece iki bitişik duvar boyunca raf. Arka duvar + sol duvar.
+   İç kısımda tek yönlü ilave raflar (arka duvara paralel) eklenir. */
+function hesaplaL(storageW, storageH, koridor, modul, rafD){
+    if (storageH <= rafD+koridor || storageW <= rafD+koridor) return null;
+    // Arka duvar rafı (yatay)
+    var backBays = Math.floor(storageW / modul);
+    if (backBays <= 0) return null;
+    // Sol duvar rafı (dikey) — arka rafın önünde başlar
+    var sideLength = storageH - rafD - koridor;
+    var leftBays = Math.floor(sideLength / modul);
+    // İç kısım: arka duvara paralel ilave raflar
+    var interiorTop = rafD + koridor;
+    var interiorWidth = storageW - rafD - koridor; // sol duvar rafından sonra
+    var interiorRows = [];
+    var cursor = interiorTop;
+    var leftover = 0;
+    while (cursor + rafD <= storageH){
+        interiorRows.push({ depth: rafD, start: cursor });
+        cursor += rafD + koridor;
+    }
+    leftover = Math.max(0, storageH - cursor);
+    var interiorBays = Math.floor(interiorWidth / modul);
+    var interiorTotal = interiorBays * interiorRows.length;
+    var total = backBays + leftBays + interiorTotal;
+    if (total <= 0) return null;
+    return {
+        type:"L",
+        backBays: backBays,
+        leftBays: leftBays,
+        backLeftover: storageW - backBays*modul,
+        sideLeftover: sideLength - leftBays*modul,
+        sideLength: sideLength,
+        interiorWidth: interiorWidth,
+        interiorBays: interiorBays,
+        interiorRows: interiorRows,
+        interiorLeftoverRun: interiorWidth - interiorBays*modul,
+        interiorLeftoverStack: leftover,
+        total: total
+    };
+}
 
-/* ================= MALZEME + MALİYET ================= */
+/* ================= MALZEME ================= */
 function hesaplaMalzeme(layout, rafD, katSayisi){
     var uprights=0, beams=0;
     function ekle(bays){ uprights += 2*(bays+1); beams += 2*bays*katSayisi; }
-    if (layout.type === "I"){ for (var i=0;i<layout.rows.length;i++) ekle(layout.bays); }
-    else {
+    if (layout.type === "I"){
+        for (var i=0;i<layout.rows.length;i++) ekle(layout.bays);
+    } else if (layout.type === "U"){
         ekle(layout.leftBays); ekle(layout.rightBays); ekle(layout.backBays);
         for (var j=0;j<layout.interiorRows.length;j++){
-            var faces = layout.interiorRows[j] > rafD*1.5 ? 2 : 1;
+            var faces = layout.interiorRows[j].depth > rafD*1.5 ? 2 : 1;
             for (var f=0;f<faces;f++) ekle(layout.interiorBays);
+        }
+    } else if (layout.type === "L"){
+        ekle(layout.backBays); ekle(layout.leftBays);
+        for (var k=0;k<layout.interiorRows.length;k++){
+            if (layout.interiorBays > 0) ekle(layout.interiorBays);
         }
     }
     return { uprights: uprights, beams: beams };
@@ -496,14 +527,13 @@ function hesaplaMaliyet(){
     var fiyatTransport = parseFloat(document.getElementById("fiyatTransport").value) || 0;
     var tDikme = dikmeMetre*fiyatDikme, tYan = yanAdet*fiyatYan, tAnkraj = ankrajAdet*fiyatAnkraj, tZemin = zeminAdet*fiyatZemin;
     var toplam = tDikme+tYan+tAnkraj+tZemin+fiyatMontaj+fiyatTransport;
-    var fmt = function(n){ return n.toLocaleString(undefined,{maximumFractionDigits:0})+" €"; };
-    document.getElementById("tDikme").textContent = fmt(tDikme);
-    document.getElementById("tYan").textContent = fmt(tYan);
-    document.getElementById("tAnkraj").textContent = fmt(tAnkraj);
-    document.getElementById("tZemin").textContent = fmt(tZemin);
-    document.getElementById("tMontaj").textContent = fmt(fiyatMontaj);
-    document.getElementById("tTransport").textContent = fmt(fiyatTransport);
-    document.getElementById("tToplam").textContent = fmt(toplam);
+    document.getElementById("tDikme").textContent = fmtMoney(tDikme);
+    document.getElementById("tYan").textContent = fmtMoney(tYan);
+    document.getElementById("tAnkraj").textContent = fmtMoney(tAnkraj);
+    document.getElementById("tZemin").textContent = fmtMoney(tZemin);
+    document.getElementById("tMontaj").textContent = fmtMoney(fiyatMontaj);
+    document.getElementById("tTransport").textContent = fmtMoney(fiyatTransport);
+    document.getElementById("tToplam").textContent = fmtMoney(toplam);
 }
 
 /* ================= ANA ÇİZİM ================= */
@@ -519,39 +549,32 @@ function cizimYap(){
     var dikmeYukseklik = parseFloat(document.getElementById("dikmeYukseklik").value) || 0;
     var secim = document.getElementById("yerlesimDuzen").value;
 
-    if (!depoEn || !depoBoy || !yuklemeBoy || depoEn<=0 || depoBoy<=0){
-        if (TG && TG.showAlert) TG.showAlert(t("alertOlcu")); else alert(t("alertOlcu")); return;
-    }
-    if (yuklemeBoy >= depoBoy){
-        if (TG && TG.showAlert) TG.showAlert(t("alertYukleme")); else alert(t("alertYukleme")); return;
-    }
+    if (!depoEn || !depoBoy || !yuklemeBoy || depoEn<=0 || depoBoy<=0){ showAlert(t("alertOlcu")); return; }
+    if (yuklemeBoy >= depoBoy){ showAlert(t("alertYukleme")); return; }
 
     var storageW = depoEn - 2*MARJIN;
     var storageH = depoBoy - yuklemeBoy - KENAR_BOSLUK - MARJIN;
-    if (storageW <= 0 || storageH <= 0){
-        if (TG && TG.showAlert) TG.showAlert(t("alertAlan")); else alert(t("alertAlan")); return;
-    }
+    if (storageW <= 0 || storageH <= 0){ showAlert(t("alertAlan")); return; }
 
-    var iEN = hesaplaI(storageW, storageH, "EN", koridor, modul, rafD);
-    var iBOY = hesaplaI(storageW, storageH, "BOY", koridor, modul, rafD);
+    /* I tipi artık KAPIYA DİK (kapı alt kenarda, raflar dikey uzanır → orientation BOY) */
+    var iDik = hesaplaI(storageW, storageH, "BOY", koridor, modul, rafD);
+    var iParalel = hesaplaI(storageW, storageH, "EN", koridor, modul, rafD);
     var uType = hesaplaU(storageW, storageH, koridor, modul, rafD);
-    var secenekler = [iEN, iBOY, uType].filter(function(x){ return x && x.total>0; });
+    var lType = hesaplaL(storageW, storageH, koridor, modul, rafD);
+
+    var secenekler = [iDik, uType, lType].filter(function(x){ return x && x.total>0; });
     var layout = null;
-    if (secim === "I") layout = [iEN,iBOY].filter(function(x){return x&&x.total>0;}).reduce(function(a,b){return (!a||b.total>a.total)?b:a;},null);
+    if (secim === "I") layout = iDik;
     else if (secim === "U") layout = uType;
+    else if (secim === "L") layout = lType;
     else layout = secenekler.reduce(function(a,b){return (!a||b.total>a.total)?b:a;},null);
-    if (!layout){
-        if (TG && TG.showAlert) TG.showAlert(t("alertUygunYok")); else alert(t("alertUygunYok")); return;
-    }
+    if (!layout){ showAlert(t("alertUygunYok")); return; }
 
     if (!stage) initKonva();
-
-    // Sahneyi temizle (viewport grubunu sil, yeniden oluştur)
     viewportGroup.destroy();
     viewportGroup = new Konva.Group({ x:0, y:0, scaleX:1, scaleY:1, draggable:true, name:"viewport" });
     mainLayer.add(viewportGroup);
 
-    // Tuval boyutuna göre scale
     var container = document.getElementById("konvaContainer");
     var cw = container.clientWidth || 600;
     var ch = container.clientHeight || 500;
@@ -562,23 +585,16 @@ function cizimYap(){
     var offsetX = (cw - drawW)/2;
     var offsetY = (ch - drawH)/2;
 
-    // Depo sınırı
-    viewportGroup.add(kRect({ x:offsetX, y:offsetY, width:drawW, height:drawH,
-        fill:"#ffffff", stroke:"#111827", strokeWidth:3.5 }));
-
-    // Bilgi metni
-    viewportGroup.add(kText({ x:offsetX+6, y:offsetY+4, text: metre(depoEn)+" × "+metre(depoBoy)+" m  |  "+t(layout.type==="I"?"tipI":"tipU"),
+    viewportGroup.add(kRect({ x:offsetX, y:offsetY, width:drawW, height:drawH, fill:"#ffffff", stroke:"#111827", strokeWidth:3.5 }));
+    viewportGroup.add(kText({ x:offsetX+6, y:offsetY+4, text: metre(depoEn)+" × "+metre(depoBoy)+" m  |  "+t(layout.type==="I"?"tipI":layout.type==="U"?"tipU":"tipL"),
         fontSize:11, fontStyle:"bold", fill:"#111827", listening:false }));
 
-    // Yükleme alanı
     var loadWidth = Math.min(yuklemeEn, depoEn);
     var loadWpx = loadWidth*scale, loadHpx = yuklemeBoy*scale;
     var loadX = offsetX + ((depoEn-loadWidth)/2)*scale;
     var loadY = offsetY + drawH - loadHpx;
-    viewportGroup.add(kRect({ x:loadX, y:loadY, width:loadWpx, height:loadHpx,
-        fill:"#eff6ff", stroke:"#16a34a", strokeWidth:1.5, dash:[5,3] }));
+    viewportGroup.add(kRect({ x:loadX, y:loadY, width:loadWpx, height:loadHpx, fill:"#eff6ff", stroke:"#16a34a", strokeWidth:1.5, dash:[5,3] }));
 
-    // Kapılar
     var wallY = offsetY+drawH;
     var vehicleW = Math.min(3.5, loadWidth*0.4), pedW=1.0, gapBtw=0.3;
     var doorStartX = loadX + loadWpx/2 - ((vehicleW+gapBtw+pedW)*scale)/2;
@@ -592,15 +608,11 @@ function cizimYap(){
 
     function voidBox(x,y,w,h,value){
         if (w<=0||h<=0) return;
-        // Çapraz tarama deseni — Konva'da çizgi grubu olarak
         var vb = new Konva.Group({ listening:false });
         vb.add(kRect({ x:x, y:y, width:w, height:h, fill:"#fff5f5", stroke:"#dc2626", strokeWidth:1, dash:[3,2] }));
-        // Çapraz çizgiler
         var step = 9;
         for (var gx=-h; gx<w; gx+=step){
-            var x1 = x+gx, y1 = y+h;
-            var x2 = x+gx+h, y2 = y;
-            // Kırpma
+            var x1 = x+gx, y1 = y+h, x2 = x+gx+h, y2 = y;
             if (x2 < x) continue;
             if (x1 > x+w) break;
             vb.add(kLine({ points:[Math.max(x,x1), y+h, Math.min(x+w,x2), y], stroke:"#f3a5a5", strokeWidth:0.8 }));
@@ -610,33 +622,36 @@ function cizimYap(){
     }
 
     if (layout.type === "I"){
-        var isEN = layout.orientation === "EN";
-        var runPx = layout.runLength*scale, cursor=0, positions=[];
-        for (var i=0;i<layout.rows.length;i++){ if (i>0) cursor += koridor; positions.push({depth:layout.rows[i], start:cursor}); cursor += layout.rows[i]; }
-
+        /* I TİPİ: kapıya DİK raflar. Raflar dikey (BOY yönünde) uzanır, yatayda sıralanır. */
+        var cursor = 0;
+        var positions = [];
+        for (var i=0;i<layout.rows.length;i++){
+            if (i>0) cursor += koridor;
+            positions.push({ depth: layout.rows[i], start: cursor });
+            cursor += layout.rows[i];
+        }
+        // Her raf dikey: genişlik = depth, yükseklik = runLength
         for (var r=0;r<positions.length;r++){
             var row = positions[r];
             var dLabel = r===0 ? metre(row.depth)+"m" : null;
-            if (isEN) drawRackRun(viewportGroup, storageLeft, storageTop+row.start*scale, layout.runLength, row.depth, modul, scale, true, dLabel);
-            else drawRackRun(viewportGroup, storageLeft+row.start*scale, storageTop, layout.runLength, row.depth, modul, scale, false, dLabel);
+            drawRackRun(viewportGroup, storageLeft+row.start*scale, storageTop, layout.runLength, row.depth, modul, scale, false, dLabel);
         }
+        // Koridor etiketi
         if (positions.length>1){
             var c0s = positions[0].start+positions[0].depth, c0e = positions[1].start;
-            if (isEN) miniLabel(viewportGroup, storageLeft+20, storageTop+((c0s+c0e)/2)*scale, metre(koridor)+"m", "#0f766e", "#f0fdfa");
-            else miniLabel(viewportGroup, storageLeft+((c0s+c0e)/2)*scale, storageTop+20, metre(koridor)+"m", "#0f766e", "#f0fdfa");
+            miniLabel(viewportGroup, storageLeft+((c0s+c0e)/2)*scale, storageTop+20, metre(koridor)+"m", "#0f766e", "#f0fdfa");
         }
+        var runPx = layout.runLength*scale;
         if (layout.runLeftover > 0.05){
-            if (isEN) voidBox(storageLeft+runPx, storageTop, layout.runLeftover*scale, cursor*scale, layout.runLeftover);
-            else voidBox(storageLeft, storageTop+runPx, cursor*scale, layout.runLeftover*scale, layout.runLeftover);
+            voidBox(storageLeft, storageTop+runPx, cursor*scale, layout.runLeftover*scale, layout.runLeftover);
             toplamBoslukM2 += layout.runLeftover*cursor;
         }
         if (layout.stackLeftover > 0.05){
-            if (isEN) voidBox(storageLeft, storageTop+cursor*scale, runPx, layout.stackLeftover*scale, layout.stackLeftover);
-            else voidBox(storageLeft+cursor*scale, storageTop, layout.stackLeftover*scale, runPx, layout.stackLeftover);
+            voidBox(storageLeft+cursor*scale, storageTop, layout.stackLeftover*scale, runPx, layout.stackLeftover);
             toplamBoslukM2 += layout.stackLeftover*layout.runLength;
         }
-        document.getElementById("statusBox").setAttribute("data-layout", t("yerlesimLbl")+t("tipI")+" ("+(isEN?t("yonEn"):t("yonBoy"))+")");
-    } else {
+        document.getElementById("statusBox").setAttribute("data-layout", t("yerlesimLbl")+t("tipI")+" ("+t("yonBoy")+")");
+    } else if (layout.type === "U"){
         var rafDpx = rafD*scale;
         var sideStartY = storageTop + rafDpx + koridor*scale;
 
@@ -669,6 +684,38 @@ function cizimYap(){
             toplamBoslukM2 += layout.backLeftover*rafD;
         }
         document.getElementById("statusBox").setAttribute("data-layout", t("yerlesimLbl")+t("tipU"));
+    } else if (layout.type === "L"){
+        var rafDpx2 = rafD*scale;
+        // Arka duvar rafı (yatay üst)
+        drawRackRun(viewportGroup, storageLeft, storageTop, layout.backBays*modul, rafD, modul, scale, true, metre(rafD)+"m");
+        // Sol duvar rafı (dikey) — arka rafın önünden başlar
+        var sideStartY2 = storageTop + rafDpx2 + koridor*scale;
+        drawRackRun(viewportGroup, storageLeft, sideStartY2, layout.leftBays*modul, rafD, modul, scale, false, null);
+
+        miniLabel(viewportGroup, storageLeft+20, storageTop+rafDpx2+(koridor*scale)/2, metre(koridor)+"m", "#0f766e", "#f0fdfa");
+
+        // İç kısım: arka duvara paralel yatay raflar (soldaki dikey rafın sağından başlar)
+        var interiorLeft2 = storageLeft + rafDpx2 + koridor*scale;
+        var interiorWidthPx = layout.interiorWidth*scale;
+        for (var q=0;q<layout.interiorRows.length;q++){
+            var ir = layout.interiorRows[q];
+            drawRackRun(viewportGroup, interiorLeft2, storageTop+ir.start*scale, layout.interiorBays*modul, rafD, modul, scale, true, q===0?metre(rafD)+"m":null);
+        }
+
+        // Boşluklar
+        if (layout.backLeftover > 0.05){
+            voidBox(storageLeft+layout.backBays*modul*scale, storageTop, layout.backLeftover*scale, rafDpx2, layout.backLeftover);
+            toplamBoslukM2 += layout.backLeftover*rafD;
+        }
+        if (layout.sideLeftover > 0.05){
+            voidBox(storageLeft, sideStartY2+layout.leftBays*modul*scale, rafDpx2, layout.sideLeftover*scale, layout.sideLeftover);
+            toplamBoslukM2 += layout.sideLeftover*rafD;
+        }
+        if (layout.interiorLeftoverRun > 0.05){
+            voidBox(interiorLeft2+layout.interiorBays*modul*scale, storageTop+rafDpx2+koridor*scale, layout.interiorLeftoverRun*scale, (storageH-rafD-koridor)*scale, layout.interiorLeftoverRun);
+            toplamBoslukM2 += layout.interiorLeftoverRun*(storageH-rafD-koridor);
+        }
+        document.getElementById("statusBox").setAttribute("data-layout", t("yerlesimLbl")+t("tipL"));
     }
 
     var malzeme = hesaplaMalzeme(layout, rafD, katSayisi);
@@ -686,12 +733,11 @@ function cizimYap(){
     mainLayer.draw();
 }
 
-/* ================= SVG YARDIMCISI (boşluk çizimi için) ================= */
 function metre(v){ return Number(v).toFixed(2); }
+function showAlert(msg){ if (TG && TG.showAlert) TG.showAlert(msg); else alert(msg); }
 
 /* ================= PDF ================= */
 function pdfOlustur(){
-    // Telegram içindeyse sendData ile bot'a gönder (bot PDF üretip göndermeli)
     if (TG && TG.initData) {
         try {
             var payload = {
@@ -707,32 +753,28 @@ function pdfOlustur(){
                 dikmeYukseklik: document.getElementById("dikmeYukseklik").value,
                 yerlesimDuzen: document.getElementById("yerlesimDuzen").value,
                 toplam: document.getElementById("tToplam").textContent,
-                lang: currentLang
+                lang: currentLang,
+                currency: cur()
             };
             TG.sendData(JSON.stringify(payload));
             if (TG.showAlert) TG.showAlert(t("pdfSent"));
             return;
-        } catch(e) {
-            // sendData başarısız → tarayıcı fallback
-        }
+        } catch(e) {}
     }
-    // Tarayıcı fallback: Konva sahnesini PNG'ye çevir, PDF'e koy
     try {
         var dataURL = stage.toDataURL({ pixelRatio: 2, mimeType: "image/png" });
         var jsPDFCtor = window.jspdf.jsPDF;
         var pdf = new jsPDFCtor({ orientation:"portrait", unit:"mm", format:"a4" });
         var pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
-        // Sahne görüntüsü
         var imgW = pageW-10, imgH = imgW * stage.height() / stage.width();
         if (imgH > pageH-10){ imgH = pageH-10; imgW = imgH * stage.width() / stage.height(); }
         pdf.addImage(dataURL, "PNG", 5, 5, imgW, imgH);
-        // Alt kısma özet metni
         pdf.setFontSize(9);
         pdf.text(t("toplam") + ": " + document.getElementById("tToplam").textContent, 5, Math.min(pageH-6, 5+imgH+5));
         pdf.save("depo-raf-plani.pdf");
         if (TG && TG.showAlert) TG.showAlert(t("pdfFallback"));
     } catch(e) {
-        if (TG && TG.showAlert) TG.showAlert(t("pdfHata")); else alert(t("pdfHata"));
+        showAlert(t("pdfHata"));
     }
 }
 
